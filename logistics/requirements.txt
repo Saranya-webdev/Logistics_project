@@ -1,0 +1,49 @@
+
+# FastAPI for building the web application and API
+fastapi==0.115.6
+
+# Uvicorn for running the FastAPI application
+uvicorn==0.34.0
+
+# MySQL client for interacting with MySQL databases
+mysql-connector-python==8.0.27
+
+# SQLAlchemy for ORM (Object-Relational Mapping) with MySQL
+sqlalchemy==2.0.36
+
+# Pydantic for data validation and settings management
+pydantic==2.10.4
+
+# Alembic for database migrations with SQLAlchemy
+alembic==1.7.5
+
+# Explanation of the Requirements:
+fastapi and uvicorn: FastAPI is used to create the API, and Uvicorn is the ASGI server to run the application.
+sqlalchemy and mysql-connector-python: SQLAlchemy is used for ORM with MySQL as the database.
+pydantic: Often used for input validation in FastAPI
+
+# 2. customers.py in schemas:
+Pydantic models for validating and serializing customer data.
+Includes custom field validators for mobile, email, categories, and type.
+
+# 3. customers.py in routers:
+Defines FastAPI routes for customer-related operations.
+Routes include POST (create), GET (retrieve by ID and all), PUT (update), and DELETE (remove).
+Handles errors using HTTPException for common cases (e.g., customer not found).
+
+# 4. customers.py in crud:
+SQLAlchemy-based functions for CRUD operations on the Customer model.
+
+# Functions include:
+get_all_customers()
+get_customer()
+create_customer()
+update_customer()
+delete_customer()
+
+# API Endpoints:
+POST /createcustomer/: Creates a new customer.
+GET /{customer_id}/viewcustomer/: Retrieves a customer by ID.
+GET /allcustomers: Retrieves all customers.
+PUT /{customer_id}/updatecustomer: Updates an existing customer.
+DELETE /{customer_id}/deletecustomer: Deletes a customer by ID.
