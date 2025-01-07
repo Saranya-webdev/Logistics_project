@@ -59,11 +59,6 @@ def get_all_users_api(db: Session = Depends(get_db)):
     # Return the response following the GetAllUsersResponse structure
     return {"users": user_responses}
 
-# @router.get("/permissions", response_model=List[dict], description="Get a list of all permissions")
-# async def get_permissions(db: Session = Depends(get_db)):
-#     permissions = db.query(UserPermission).all()
-#     return [{"id": p.id, "name": p.name} for p in permissions]
-
 # UPDATE user by ID
 @router.put("/{user_id}/updateuser", response_model=UserWithBookingAndQuotationResponse, status_code=status.HTTP_200_OK)
 async def edit_user_api(user_id: int, user: UpdateUser, db: Session = Depends(get_db)):
