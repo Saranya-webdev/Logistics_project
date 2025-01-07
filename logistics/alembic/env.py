@@ -1,7 +1,7 @@
 import sys
 import os
 
-# Add the parent directory to the sys.path to locate 'logistics'
+# Add the root directory of the project to the sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from logging.config import fileConfig
@@ -9,17 +9,14 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
 
-# This is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
 config = context.config
 
 # Interpret the config file for Python logging.
-# This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Import the Base object from logistics/models.py
-from logistics.models import Base  # Corrected import path
+# Import the Base object from the correct path
+from logistics.app.models import Base
 
 target_metadata = Base.metadata  # Use the Base metadata
 

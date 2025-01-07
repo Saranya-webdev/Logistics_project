@@ -1,24 +1,22 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session
 from fastapi import Depends
 
 # Database URL
-URL_DATABASE = 'mysql+pymysql://saranya:fullstackdeveloper%4016-17@localhost:3306/logisticsdb'
+DATABASE_URL = 'mysql+pymysql://saranya:fullstackdeveloper%4016-17@localhost:3306/logisticsdb'
 
-# Create engine and session local for database connection
-engine = create_engine(URL_DATABASE)
+# Create engine and session local for database connection (Remove check_same_thread argument)
+engine = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base class for models
 Base = declarative_base()
 
-# Database session dependency
+# Dependency to get the DB session
 def get_db():
-    db = SessionLocal() #returns new database session connected to the database engine.
+    db = SessionLocal()  # Directly use the defined SessionLocal
     try:
-        yield db #return the session
+        yield db
     finally:
-        db.close() #database session is closed after the request is complete,releasing the connection
+        db.close()
