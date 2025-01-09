@@ -7,6 +7,7 @@ from app.models import Users,Bookings, Quotations
 from app.utils import validate_entry_by_id
 from app.schemas.users import (CreateUser, UpdateUser, UserWithBookingAndQuotationResponse, 
 GetAllUsersResponse, QuotationDetailedResponse, BookingDetailedResponse)
+from app.service.users import create_user, update_user, check_user_exists
 import logging
 
 router = APIRouter()
