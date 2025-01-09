@@ -16,8 +16,6 @@ def validate_entry_by_id(value: int, db: Session, model, model_name: str):
         raise HTTPException(status_code=400, detail=f"Invalid {model_name} ID")
     return value
 
-
-
 def validate_foreign_key(db: Session, model, field: str, value: int):
     obj = db.query(model).filter(getattr(model, field) == value).first()
     if not obj:
