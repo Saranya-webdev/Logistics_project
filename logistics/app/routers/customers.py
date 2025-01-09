@@ -7,6 +7,7 @@ from typing import List
 from sqlalchemy.exc import IntegrityError
 from app.models import Customer
 from sqlalchemy.orm import joinedload
+from app.service.customers import create_customer, update_customer
 import logging
 
 router = APIRouter()

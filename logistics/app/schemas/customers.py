@@ -72,8 +72,8 @@ class CreateCustomer(BaseModel):
         """
         Validate the format of the mobile number.
         """
-        if value and (value < 1000000000 or value > 9999999999):
-            raise ValueError("Invalid mobile number format")
+        if value and (len(value) != 10 or not value.isdigit()):
+            raise ValueError('Mobile number must be a 10-digit number.')
         return value
 
     # Custom validator for email field

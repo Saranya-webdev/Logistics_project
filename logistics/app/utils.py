@@ -9,12 +9,12 @@ def populate_dynamic_entries(db: Session, model, entries: list):
     db.commit()
 
 # Generalized validator for checking the existence of a model entry by ID
-def validate_entry_by_id(value: int, db: Session, model, model_name: str):
-    # Use getattr to dynamically fetch the correct field name (e.g., 'user_id' instead of 'id')
-    entry = db.query(model).filter(getattr(model, 'user_id') == value).first()  # Adjust 'user_id' based on the actual field name
+def validate_entry_by_id(value: int, db: Session, model, field_name: str):
+    entry = db.query(model).filter(getattr(model, field_name) == value).first()
     if not entry:
-        raise HTTPException(status_code=400, detail=f"Invalid {model_name} ID")
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name} ID")
     return value
+
 
 def validate_foreign_key(db: Session, model, field: str, value: int):
     obj = db.query(model).filter(getattr(model, field) == value).first()
