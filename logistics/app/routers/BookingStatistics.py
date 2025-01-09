@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List
-from app.mongodb import get_booking_statistics_collection
+from app.databases.mongodb import get_booking_statistics_collection
 from app.crud.BookingStatistics import (
     create_booking_statistic,
     get_all_booking_statistics,

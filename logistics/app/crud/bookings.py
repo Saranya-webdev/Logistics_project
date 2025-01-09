@@ -1,13 +1,22 @@
-from sqlalchemy.orm import Session
-from app.models import Bookings, Quotations, AddressBook, BookingItem, QuotationItems,Users
-from app.schemas.bookings import BookingCreate, QuotationCreate, AddressBookCreate,BookingDetailedResponse
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session,joinedload
+from app.schemas.bookings import BookingCreate, QuotationCreate, AddressBookCreate
 from fastapi import HTTPException
+import logging
+from app.models.bookings import Bookings, BookingItem
+from app.models.quotations import QuotationItems,Quotations
+from app.models.addressbooks import AddressBook
 
-# CRUD for Booking
+
+# Configure logger
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+# Creates a new booking in the database.
 def create_booking(db: Session, booking: BookingCreate):
+    """
+    Create a new booking in the database.
+    """
     try:
-        # Create booking record
         db_booking = Bookings(
             user_id=booking.user_id,
             created_by=booking.created_by,
@@ -16,7 +25,7 @@ def create_booking(db: Session, booking: BookingCreate):
             name=booking.name,
             phone_number=booking.phone_number,
             email=booking.email,
-            address=booking.address,
+            from_address=booking.from_address,
             city=booking.city,
             state=booking.state,
             country=booking.country,
@@ -29,12 +38,12 @@ def create_booking(db: Session, booking: BookingCreate):
             to_state=booking.to_state,
             to_country=booking.to_country,
             to_pincode=booking.to_pincode,
-            created_at=booking.created_at,
-            updated_at=booking.updated_at,
-            estimated_delivery_date=booking.estimated_delivery_date,
             estimated_delivery_cost=booking.estimated_delivery_cost,
+            estimated_delivery_date=booking.estimated_delivery_date,
             pickup_time=booking.pickup_time,
             pickup_date=booking.pickup_date,
+            created_at=booking.created_at,
+            updated_at=booking.updated_at, 
         )
         db.add(db_booking)
         db.commit()
@@ -58,96 +67,96 @@ def create_booking(db: Session, booking: BookingCreate):
             db.commit()  # Commit after adding items
 
         return db_booking
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Error occurred: {str(e)}")
+        logger.error(f"Error creating a booking: {str(e)}")
+        raise
 
 
-
+# Fetches a booking by ID.
 def get_booking(db: Session, booking_id: int):
-    return db.query(Bookings).filter(Bookings.booking_id == booking_id).first()
+    """
+    Retrieve a booking by their ID.
+    """
+    try:
+        booking = db.query(Bookings).filter(Bookings.booking_id == booking_id).first()
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        return booking
+    except Exception as e:
+        logger.error(f"Error fetching booking with ID {booking_id}: {str(e)}")
+        raise
 
+# Fetches all bookings from the database.
+def get_all_bookings(db: Session):
+    """
+    Retrieve all bookings from the database with their quotation details.
+    """
+    try:
+       return db.query(Bookings).options(joinedload(Bookings.quotation)).all
+    except Exception as e:
+        logger.error(f"Error fetching all bookings: {str(e)}")
+        raise
 
-def get_all_bookings(db: Session, skip: int = 0, limit: int = 100,status: str = None):
-    query = db.query(Bookings)
-    if status:
-        query = query.filter(Bookings.status == status)
-    return query.offset(skip).limit(limit).all()
+# Updates a booking by ID.
+def update_booking(db: Session, booking_id: int, update_data: dict):
+    existing_booking = db.query(Bookings).filter(Bookings.booking_id == booking_id).first()
+    if not existing_booking:
+        return None
 
+    booking_items_data = update_data.pop('booking_items', None)
 
-def update_booking(booking_id: int, booking_data: dict, db: Session):
-    # Check if 'created_by' is a valid user
-    created_by = booking_data.get('created_by')
-    if created_by is None or not db.query(Users).filter(Users.user_id == created_by).first():
-        raise HTTPException(status_code=400, detail="Invalid user_id for created_by")
-    
-    # Fetch the booking record
-    booking = db.query(Bookings).filter(Bookings.booking_id == booking_id).first()
-    if not booking:
-        raise HTTPException(status_code=404, detail="Booking not found")
-    
-    # Update booking fields (excluding 'booking_items')
-    for key, value in booking_data.items():
-        if key != 'booking_items' and hasattr(booking, key) and value is not None:
-            setattr(booking, key, value)
+    for key, value in update_data.items():
+        setattr(existing_booking, key, value)
 
-    # Update booking items if provided
-    booking_items_data = booking_data.get('booking_items', [])
-    if booking_items_data:
+    if booking_items_data is not None:
         for item_data in booking_items_data:
-            item_id = item_data.get('item_id')
-            if item_id:  # Update existing item
-                booking_item = db.query(BookingItem).filter(BookingItem.item_id == item_id, BookingItem.booking_id == booking_id).first()
-                if booking_item:
-                    for key, value in item_data.items():
-                        if hasattr(booking_item, key) and value is not None:
-                            setattr(booking_item, key, value)
-                else:
-                    raise HTTPException(status_code=404, detail=f"Booking item with ID {item_id} not found")
-            else:  # Add new item if no item_id is provided
-                # Check if a similar item already exists (by matching item details)
-                existing_item = db.query(BookingItem).filter(
-                    BookingItem.booking_id == booking_id,
-                    BookingItem.weight == item_data['weight'],
-                    BookingItem.length == item_data['length'],
-                    BookingItem.width == item_data['width'],
-                    BookingItem.height == item_data['height'],
-                    BookingItem.D_type == item_data['package_type']
-                ).first()
-                
-                if existing_item:
-                    raise HTTPException(status_code=400, detail="Duplicate booking item detected.")
-                try:
-                    new_item = BookingItem(**item_data, booking_id=booking_id)
-                    db.add(new_item)
-                except Exception as e:
-                    raise HTTPException(status_code=400, detail=f"Error adding booking item: {str(e)}")
-    
-    # Commit the transaction
+            if isinstance(item_data, dict):
+                item_instance = BookingItem(**item_data)
+            else:
+                item_instance = item_data
+
+            existing_item = db.query(BookingItem).filter(BookingItem.item_id == item_instance.item_id).first()
+            if existing_item:
+                for key, value in item_data.items():
+                    setattr(existing_item, key, value)
+            else:
+                item_instance.booking_id = booking_id  # Set the booking_id for new items
+                existing_booking.booking_items.append(item_instance)
+
     db.commit()
+    db.refresh(existing_booking)
 
-    # Refresh the updated booking and return the response
-    db.refresh(booking)
-    return BookingDetailedResponse.from_orm(booking)
+    # Add booking_id to each booking_item for response
+    for item in existing_booking.booking_items:
+        item.booking_id = existing_booking.booking_id
+
+    return existing_booking
 
 
-
-
-
+# Deletes a booking by ID.
 def delete_booking(db: Session, booking_id: int):
-    db_booking = db.query(Bookings).filter(Bookings.booking_id == booking_id).first()
-    if db_booking:
-        db.delete(db_booking)
-        db.commit()
-        return {"message": "Booking deleted successfully"}
-    return {"message": "Booking not found"}
+    """
+    Delete a booking by their ID.
+    """
+    try:
+       booking_to_delete = db.query(Bookings).filter(Bookings.booking_id == booking_id).first()
+       if not booking_to_delete:
+        raise HTTPException(status_code=404, detail="Booking ID not found")
+       
+       db.delete(booking_to_delete)
+       db.commit()
+       return {"detail": f"Booking {booking_to_delete.name} (ID: {booking_to_delete.booking_id}) deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting booking with ID {booking_id}: {str(e)}")
+        raise
 
-
-# CRUD for Quotation
+# Creates a new quotation in the database
 def create_quotation(db: Session, quotation: QuotationCreate):
+    """
+    Create a new quotation in the database.
+    """
     try:
         # Create booking record
         db_quotation = Quotations(
@@ -176,53 +185,102 @@ def create_quotation(db: Session, quotation: QuotationCreate):
                 items_to_add.append(db_item)
                 db.add_all(items_to_add)
                 db.commit()
-        return db_quotation
+                return db_quotation
     except Exception as e:
-        db.rollback()  # Rollback in case of error
-        raise HTTPException(status_code=500, detail=str(e))
+        db.rollback()
+        logger.error(f"Error creating quotation: {str(e)}")
+        raise
 
+# Fetches a quotation by ID.
 def get_quotation(db: Session, quotation_id: int):
-    return db.query(Quotations).filter(Quotations.quotation_id == quotation_id).first()
+    """
+    Retrieve a quotation by their ID.
+    """
+    try:
+        quotation = db.query(Quotations).filter(Quotations.quotation_id == quotation_id).first()
+        if not quotation:
+            raise HTTPException(status_code=404, detail="Quotation not found")
+        return quotation
+    except Exception as e:
+        logger.error(f"Error fetching quotation with ID {quotation_id}: {str(e)}")
+        raise
 
+# Fetches all quotationsfrom the database.
+def get_all_quotations(db: Session):
+    """
+    Retrieve all quotations from the database with their quotation items.
+    """
+    try:
+       return db.query(Quotations).options(joinedload(Bookings.booking_items)).all()
+    except Exception as e:
+        logger.error(f"Error fetching all quotations: {str(e)}")
+        raise
 
-def get_all_quotations(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(Quotations).offset(skip).limit(limit).all()
-
+# Updates a quotation by ID.
 def update_quotation(db: Session, quotation_id: int, quotation_data: dict):
-    db_quotation = db.query(Quotations).filter(Quotations.quotation_id == quotation_id).first()
-
-    if db_quotation:
-        for key, value in quotation_data.items():
+    """
+    Update an existing quotation by their ID.
+    """
+    try:
+       existing_quotation = db.query(Quotations).filter(Quotations.quotation_id == quotation_id).first()
+       if not existing_quotation:
+        raise HTTPException(status_code=404, detail="Quotation ID not found")
+       
+       # Update fields dynamically
+       for key, value in quotation_data.items():
             if value is not None:
-                setattr(db_quotation, key, value)
-        db.commit()
-        db.refresh(db_quotation)
-        return db_quotation
-    return None
+                setattr(existing_quotation, key, value)
+       db.commit()
+       db.refresh(existing_quotation)
+       return existing_quotation
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating quotation with ID {quotation_id}: {str(e)}")
+        raise
 
-
+# Updates a quotation status by quotation ID.
 def update_quotation_status(db: Session, quotation_id: int, status: str):
-    db_quotation = db.query(Quotations).filter(Quotations.quotation_id == quotation_id).first()
-    if db_quotation:
-        db_quotation.status = status
+    """
+    Update an existing quotation status by quotation ID.
+    """
+    try:
+       existing_quotation = db.query(Quotations).filter(Quotations.quotation_id == quotation_id).first()
+       if existing_quotation:
+        existing_quotation.status = status
         db.commit()
-        db.refresh(db_quotation)
-        return db_quotation
-    return None
+        db.refresh(existing_quotation)
+        return existing_quotation
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating quotation status with ID {quotation_id}: {str(e)}")
+        raise
 
-
+# Deletes a quotation by ID.
 def delete_quotation(db: Session, quotation_id: int):
-    db_quotation = db.query(Quotations).filter(Quotations.quotation_id == quotation_id).first()
-    if db_quotation:
-        db.delete(db_quotation)
+    """
+    Delete a quotation by their ID.
+    """
+    try:
+        quotation_to_delete = db.query(Quotations).filter(Quotations.quotation_id == quotation_id).first()
+        if not quotation_to_delete:
+            raise HTTPException(status_code=404, detail="Quotation ID not found")
+
+        db.delete(quotation_to_delete)
         db.commit()
-        return {"message": "Quotation deleted successfully"}
-    return {"message": "Quotation not found"}
+        return {"detail": f"Quotation {quotation_to_delete.quotation_id} deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting quotation with ID {quotation_id}: {str(e)}")
+        raise
 
 
-# CRUD for AddressBook
+# Creates a new address book in the database.
 def create_address_book(db: Session, address: AddressBookCreate):
-    db_address = AddressBook(
+    """
+    Create a new address book in the database.
+    """
+    try:
+        db_address = AddressBook(
         user_id=address.user_id,
         name=address.name,
         address_line_1=address.address_line_1,
@@ -232,37 +290,74 @@ def create_address_book(db: Session, address: AddressBookCreate):
         postal_code=address.postal_code,
         country=address.country,
         mobile=address.mobile,
-    )
-    db.add(db_address)
-    db.commit()
-    db.refresh(db_address)
-    return db_address
+        )
+        db.add(db_address)
+        db.commit()
+        db.refresh(db_address)
+        return db_address
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating address book: {str(e)}")
+        raise
 
-
+# Fetches an address book by ID.
 def get_address_book(db: Session, address_id: int):
-    return db.query(AddressBook).filter(AddressBook.address_id == address_id).first()
+    """
+    Retrieve an addressbook by their ID.
+    """
+    try:
+        address_book = db.query(AddressBook).filter(AddressBook.address_id == address_id).first()
+        if not address_book:
+            raise HTTPException(status_code=404, detail="address book not found")
+        return address_book
+    except Exception as e:
+        logger.error(f"Error fetching address book with ID {address_id}: {str(e)}")
+        raise
 
+# Fetches all address book from the database.
+def get_all_addresses(db: Session):
+    """
+    Retrieve all address book from the database.
+    """
+    try:
+        return db.query(AddressBook).all()
+    except Exception as e:
+        logger.error(f"Error fetching all address books: {str(e)}")
+        raise
 
-def get_all_addresses(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(AddressBook).offset(skip).limit(limit).all()
-
-
+# Updates a address_book by ID.
 def update_address_book(db: Session, address_id: int, address_data: dict):
-    db_address = db.query(AddressBook).filter(AddressBook.id == address_id).first()
-    if db_address:
+    """
+    Update an existing address book by their ID.
+    """
+    try:
+       db_address = db.query(AddressBook).filter(AddressBook.id == address_id).first()
+       if db_address:
         for key, value in address_data.items():
             if value is not None:
                 setattr(db_address, key, value)
         db.commit()
         db.refresh(db_address)
         return db_address
-    return None
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating address book with ID {address_id}: {str(e)}")
+        raise
 
-
+# Deletes a address by ID.
 def delete_address_book(db: Session, address_id: int):
-    db_address = db.query(AddressBook).filter(AddressBook.address_id == address_id).first()
-    if db_address:
-        db.delete(db_address)
-        db.commit()
-        return {"message": "Address deleted successfully"}
-    return {"message": "Address not found"}
+    """
+    Delete an address book by their ID.
+    """
+    try:
+       addressbook_to_delete = db.query(AddressBook).filter(AddressBook.address_id == address_id).first()
+       if addressbook_to_delete:
+            db.delete(addressbook_to_delete)
+            db.commit()
+            return {"detail": f"Address {addressbook_to_delete.address_id} deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting address book with ID {address_id}: {str(e)}")
+        raise
+
+    

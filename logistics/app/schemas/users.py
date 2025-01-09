@@ -1,73 +1,82 @@
 from pydantic import BaseModel, field_validator
 from typing import Optional, List
 from datetime import datetime
-# from app.models import UserPermission
-from fastapi import HTTPException
-from sqlalchemy.orm import Session
 from app.schemas.bookings import BookingDetailedResponse,QuotationDetailedResponse
 
 # Pydantic Models
 class User(BaseModel):
+    """
+    Pydantic model for representing a User.
+    """
     username: str
     email: str
     mobile: str
-    address: str
-    city: str
-    state: str
-    pincode: Optional[int]
-    country: str
+    # address: str
+    # city: str
+    # state: str
+    # pincode: Optional[int]
+    # country: str
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
 
+
+# CreateCustomer Model (for receiving input data for creating a customer)
 class CreateUser(BaseModel):
+    """
+    Pydantic model for receiving input data for creating a customer.
+    """
     username: str
     email: str
     mobile: str
     password: str
-    # permission_id: int
     role: str
     created_at: datetime
     updated_at: datetime
     
-
-
     class Config:
         from_attributes = True  # Allows easy integration with SQLAlchemy 
 
     # Custom validator for mobile field
-@field_validator('mobile', mode='before') 
-def validate_mobile(cls, value):
-    if not value.isdigit():  # Ensure the value is numeric
-        raise ValueError("Mobile number must contain only digits")
-    
-    value = int(value)  # Convert the string to an integer
-    if value < 1000000000 or value > 9999999999:  # Validate the range
-        raise ValueError("Invalid mobile number format")
-    return value
+    @field_validator('mobile', mode='before') 
+    def validate_mobile(cls, value):
+        """
+        Validate the format of the mobile number.
+        """
+        if value and (len(value) != 10 or not value.isdigit()):
+            raise ValueError("Invalid mobile number format")
+        return value
 
     # Custom validator for email field
-@field_validator('email', mode='before')
-def validate_email(cls, value):
+    @field_validator('email', mode='before')
+    def validate_email(cls, value):
+        """
+        Validate the format of the email address.
+        """
         # Check if the email contains "@" and a valid domain
         if "@" not in value or "." not in value.split("@")[-1]:
             raise ValueError("Invalid email format")
         return value   
         
 class UpdateUser(BaseModel):
+    """
+    Pydantic model for receiving input data for updating a user.
+    """
     username: str
     email: str
     mobile: str
     role:Optional[str] = None
     
-
     class Config:
         from_attributes = True        
 
 
 class UserWithBookingAndQuotationResponse(BaseModel):
+    """
+    Pydantic model for representing input data for a user with booking and quotation details.
+    """
     user_id: int
     username: str
     email: str
@@ -75,19 +84,29 @@ class UserWithBookingAndQuotationResponse(BaseModel):
     role: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
-    bookings: List[BookingDetailedResponse] = []  # List of bookings
-    quotations: List[QuotationDetailedResponse] = []  # List of quotations
+    # List of bookings
+    bookings: List[BookingDetailedResponse] = [] 
+     # List of quotations
+    quotations: List[QuotationDetailedResponse] = [] 
 
     class Config:
         from_attributes = True
 
+
 class GetAllUsersResponse(BaseModel):
+    """
+    Pydantic model for representing input data for all users with booking and quotation details.
+    """
     users: List[UserWithBookingAndQuotationResponse]
 
     class Config:
         from_attributes = True
 
+
 class GetUserResponse(BaseModel):
+    """
+    Pydantic model for representing input data for a user with booking and quotation details.
+    """
     user: UserWithBookingAndQuotationResponse
 
     class Config:

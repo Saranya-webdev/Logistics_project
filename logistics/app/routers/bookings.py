@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session,joinedload
 from app.schemas.bookings import BookingCreate, BookingDetailedResponse, BookingUpdate,AddressBookCreate, AddressBookResponse, AddressBookUpdate,QuotationCreate, QuotationDetailedResponse, QuotationUpdate
-from app.database import get_db
+from app.databases.mysqldb import get_db
 from typing import List
 from sqlalchemy.exc import IntegrityError
-from app.models import Bookings,Quotations,AddressBook
+from app.models.bookings import Bookings, BookingItem
+from app.models.quotations import Quotations
+from app.models.addressbooks import AddressBook
 from fastapi.exceptions import RequestValidationError
-from sqlalchemy.orm import joinedload
 from app.crud.bookings import get_booking, create_booking, update_booking, delete_booking, \
                              get_address_book, create_address_book, update_address_book, delete_address_book, \
                              get_quotation, create_quotation, update_quotation, delete_quotation
@@ -16,19 +17,22 @@ router = APIRouter()
 # Create booking
 @router.post("/createbooking/", response_model=BookingDetailedResponse, status_code=status.HTTP_201_CREATED,
              description="Create a new booking and return the created booking object.")
-async def create_booking_api(booking: BookingCreate, db: Session = Depends(get_db)):
+async def create_new_booking(booking: BookingCreate, db: Session = Depends(get_db)):  # Renamed function
     try:
-        # Pass booking data to CRUD function
-        return create_booking(db, booking)
+        # Call the CRUD function with the correct name
+        new_booking = create_booking(db, booking)  # CRUD function
+        return new_booking
     except IntegrityError as e:
         if "UNIQUE constraint failed" in str(e.orig):
             raise HTTPException(status_code=400, detail="Booking with this identifier already exists")
         raise HTTPException(status_code=500, detail="Database error occurred")
 
+
 # GET booking by ID
 @router.get("/{booking_id}/viewbooking/", response_model=BookingDetailedResponse, status_code=status.HTTP_200_OK)
 async def get_booking(booking_id: int, db: Session = Depends(get_db)):
 
+    # Fetch the booking with its associated items using joinedload
     booking = db.query(Bookings).options(joinedload(Bookings.booking_items)).filter(Bookings.booking_id == booking_id).first()
     
     if booking is None:
@@ -37,51 +41,73 @@ async def get_booking(booking_id: int, db: Session = Depends(get_db)):
     # Prepare the response model with data from the booking
     booking_data = {key: value for key, value in booking.__dict__.items() if key != '_sa_instance_state'}
     
-    # Ensure that booking_items is included in the response
     booking_data['booking_items'] = [
         {
+            'item_id': item.item_id,
+            'booking_id': booking.booking_id, 
             'weight': item.weight,
             'length': item.length,
             'width': item.width,
             'height': item.height,
             'package_type': item.package_type,
             'cost': item.cost,
-            'item_id': item.item_id,
         }
         for item in booking.booking_items
     ]
     
-    # Ensure package_type is set
+    # Ensure package_type is set (if not already set in the booking data)
     if not booking_data.get('package_type'):
-        booking_data['package_type'] = "other"  # Default value
+        booking_data['package_type'] = "other"  # Default value if package_type is not found
+
     return booking_data
 
 # GET all bookings
 @router.get("/allbookings", response_model=List[BookingDetailedResponse])
-def get_all_bookings_api(db: Session = Depends(get_db)):
+def get_all_bookings(db: Session = Depends(get_db)):
     bookings = db.query(Bookings).all()
     return bookings
 
-# UPDATE booking by ID
 @router.put("/{booking_id}/updatebooking", response_model=BookingDetailedResponse, status_code=status.HTTP_200_OK)
-async def update_booking_api(booking_id: int, booking: BookingUpdate, db: Session = Depends(get_db)):
-    # Convert Pydantic model to dict (only unset fields are excluded)
+async def update_booking(booking_id: int, booking: BookingUpdate, db: Session = Depends(get_db)):
     booking_data = booking.dict(exclude_unset=True)
 
-    # Validate if essential fields like 'created_by' and 'package_type' are properly provided
     if 'created_by' not in booking_data:
         raise HTTPException(status_code=400, detail="Missing required field: created_by")
+
+    existing_booking = db.query(Bookings).filter(Bookings.booking_id == booking_id).first()
+    if not existing_booking:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
+
+    for key, value in booking_data.items():
+        if key != 'booking_items':
+            setattr(existing_booking, key, value)
+
+    if 'booking_items' in booking_data:
+        for new_item in booking_data['booking_items']:
+            if isinstance(new_item, dict):
+                new_item_model = BookingItem(**new_item)
+            else:
+                new_item_model = new_item
+
+            existing_item = db.query(BookingItem).filter(BookingItem.item_id == new_item.get('item_id')).first()
+            if existing_item:
+                for key, value in new_item.items():
+                    setattr(existing_item, key, value)
+            else:
+                existing_booking.booking_items.append(new_item_model)
+
+    db.commit()
+    db.refresh(existing_booking)
+
+    updated_booking_data = {key: value for key, value in existing_booking.__dict__.items() if key != '_sa_instance_state'}
+    updated_booking_data['booking_items'] = [
+        {key: getattr(item, key) for key in ['item_id', 'weight', 'length', 'width', 'height', 'package_type', 'cost']}
+        for item in existing_booking.booking_items
+    ]
     
-    # Call the update function with booking data and session
-    updated_booking = update_booking(booking_id, booking_data, db)
-    
-    # If no updated booking is found, raise a not found exception
-    if not updated_booking:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Booking not found"
-        )
-    return updated_booking
+    return updated_booking_data
+
+
 
 # DELETE booking by ID with HTTP_204_NO_CONTENT status
 @router.delete("/{booking_id}/deletebooking", status_code=status.HTTP_204_NO_CONTENT)
