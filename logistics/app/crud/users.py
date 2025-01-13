@@ -2,16 +2,16 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.users import Users
 from app.utils import log_and_raise_exception,get_entity_by_id
 from passlib.hash import bcrypt
-from app.schemas.users import UserWithBookingAndQuotationResponse
+from app.schemas.users import UserResponse
 
 
 # Fetches all customers from the database.
 def get_all_users(db: Session):
     """
-    Retrieve all users from the database with their booking details.
+    Retrieve all users from the database .
     """
     try:
-        return db.query(Users).options(joinedload(Users.bookings)).all()
+        return db.query(Users).all()
     except Exception as e:
         log_and_raise_exception(f"Error fetching all users: {str(e)}", 500)
 
@@ -56,7 +56,7 @@ def create_user(db: Session, user_data: dict):
         db.refresh(db_user)
 
         # Return the Pydantic response model
-        return UserWithBookingAndQuotationResponse.from_orm(db_user)
+        return UserResponse.from_orm(db_user)
 
     except Exception as e:
         db.rollback()
@@ -76,7 +76,7 @@ def update_user(db: Session, user_id: int, user_data: dict):
 
        db.commit()
        db.refresh(existing_user)
-       return UserWithBookingAndQuotationResponse.from_orm(existing_user)
+       return UserResponse.from_orm(existing_user)
     except Exception as e:
        db.rollback()
        log_and_raise_exception(f"Error updating user with ID {user_id}: {str(e)}" , 500)

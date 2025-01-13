@@ -15,12 +15,10 @@ from app.crud.bookings import get_booking, create_booking, update_booking, delet
 router = APIRouter()
 
 # Create booking
-@router.post("/createbooking/", response_model=BookingDetailedResponse, status_code=status.HTTP_201_CREATED,
-             description="Create a new booking and return the created booking object.")
-async def create_new_booking(booking: BookingCreate, db: Session = Depends(get_db)):  # Renamed function
+@router.post("/createbookings/", response_model=BookingDetailedResponse, status_code=status.HTTP_201_CREATED)
+async def create_new_booking(booking: BookingCreate, db: Session = Depends(get_db)):
     try:
-        # Call the CRUD function with the correct name
-        new_booking = create_booking(db, booking)  # CRUD function
+        new_booking = create_booking(db, booking)
         return new_booking
     except IntegrityError as e:
         if "UNIQUE constraint failed" in str(e.orig):
@@ -99,13 +97,15 @@ async def update_booking(booking_id: int, booking: BookingUpdate, db: Session = 
     db.commit()
     db.refresh(existing_booking)
 
+    # Ensure booking_id is set for each booking_item before returning
     updated_booking_data = {key: value for key, value in existing_booking.__dict__.items() if key != '_sa_instance_state'}
     updated_booking_data['booking_items'] = [
-        {key: getattr(item, key) for key in ['item_id', 'weight', 'length', 'width', 'height', 'package_type', 'cost']}
+        {key: getattr(item, key) for key in ['item_id', 'weight', 'length', 'width', 'height', 'package_type', 'cost', 'booking_id']}
         for item in existing_booking.booking_items
     ]
     
     return updated_booking_data
+
 
 
 

@@ -52,22 +52,36 @@ class UpdateUser(BaseModel):
     class Config:
         from_attributes = True        
 
-class UserWithBookingAndQuotationResponse(BaseModel):
-    """
-    Pydantic model for representing input data for a user with booking and quotation details.
-    """
+# class UserWithBookingAndQuotationResponse(BaseModel):
+#     """
+#     Pydantic model for representing input data for a user with booking and quotation details.
+#     """
+#     user_id: int
+#     user_name: str
+#     email: str
+#     mobile: str
+#     role: Optional[str] = None
+#     created_at: datetime
+#     updated_at: Optional[datetime] = None
+#     # List of bookings
+#     bookings: List[BookingDetailedResponse] = [] 
+#     # List of quotations
+#     quotations: List[QuotationDetailedResponse] = [] 
+
+#     class Config:
+#         from_attributes = True
+        
+
+class UserResponse(BaseModel):
     user_id: int
     user_name: str
     email: str
     mobile: str
-    role: Optional[str] = None
+    role: str
     created_at: datetime
-    updated_at: Optional[datetime] = None
-    # List of bookings
-    bookings: List[BookingDetailedResponse] = [] 
-    # List of quotations
-    quotations: List[QuotationDetailedResponse] = [] 
+    updated_at: Optional[datetime]
 
     class Config:
         from_attributes = True
-        
+
+

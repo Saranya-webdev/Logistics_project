@@ -18,4 +18,4 @@ class AddressBook(Base):
     country = Column(String(100), nullable=False)
     mobile = Column(String(15))
     created_at = Column(DateTime, nullable=False, default=func.now())
-    user = relationship("Users", back_populates="address_books")  
+    

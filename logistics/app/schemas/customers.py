@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
+from app.schemas.bookings import BookingDetailedResponse,QuotationDetailedResponse
 
 
 # Pydantic Schema for Customer Category
@@ -51,6 +52,7 @@ class CustomerBase(BaseModel):
     taxid: str
     licensenumber: str
     designation: str
+    is_active: bool
 
     class Config:
         from_attributes = True
@@ -64,8 +66,8 @@ class CustomerCreate(CustomerBase):
 
 class CustomerResponse(CustomerBase):
     customer_id: int
-    category: CustomerCategoryResponse
-    customer_type: Optional[CustomerTypeResponse]
+    category: Optional[CustomerCategoryResponse] = None
+    customer_type: Optional[CustomerTypeResponse] = None
 
     class Config:
         from_attributes = True
@@ -76,7 +78,5 @@ class CustomerUpdate(CustomerBase):
 
     class Config:
         from_attributes = True
-
-
 
 

@@ -1,32 +1,15 @@
-from sqlalchemy import Integer, String, Column, DateTime, ForeignKey,Enum,DECIMAL,Date,Time
+from sqlalchemy import Integer, String, Column, DateTime, ForeignKey, Enum, DECIMAL, Date, Time
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.models.base import Base
-import enum
-
-# Enums
-class PickupMethod(str, enum.Enum):
-    user_address = 'user_address'
-    drop_point = 'drop_point'
-
-class PackageType(str, enum.Enum):
-    Box = 'Box'
-    Envelope = 'Envelope' 
-    Other = 'other'   
-
-class PickupStatus(str,enum.Enum):
-    pending = 'pending'
-    confirmed = 'confirmed'
-    shipped = 'shipped'
-    delivered = 'delivered'
-    cancelled = 'cancelled'
+from app.models.enums import PickupMethod, PickupStatus, PackageType
 
 # Booking Model
 class Bookings(Base):
     __tablename__ = 'bookings'
-    
+
     booking_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"))
+    customer_id = Column(Integer, ForeignKey("customers.customer_id"), nullable=False)  # ForeignKey to Customer
     created_by = Column(Integer, ForeignKey("users.user_id"))  # ForeignKey to the creator (User)
     name = Column(String(255), nullable=False)
     phone_number = Column(String(255), nullable=False)
@@ -36,8 +19,6 @@ class Bookings(Base):
     state = Column(String(255), nullable=False)
     country = Column(String(255), nullable=False)
     pincode = Column(Integer, nullable=True)
-    pickup_method = Column(Enum(PickupMethod), nullable=False, name='pickup_method')
-    booking_status = Column(Enum(PickupStatus), default=PickupStatus.pending, nullable=False, name='booking_status')
     to_name = Column(String(255), nullable=False)
     to_phone_number = Column(String(255), nullable=False)
     to_email = Column(String(255), nullable=False)
@@ -49,16 +30,19 @@ class Bookings(Base):
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     estimated_delivery_date = Column(DateTime, nullable=True)
-    estimated_delivery_cost = Column(Integer, nullable=False)
+    estimated_delivery_cost = Column(DECIMAL(10, 2), nullable=False)
     pickup_time = Column(Time, nullable=True)
     pickup_date = Column(Date, nullable=True)
     quotation_id = Column(Integer, ForeignKey('quotations.quotation_id'))
-    customer_id = Column(Integer, ForeignKey('customers.customer_id'), nullable=False)
-    user = relationship("Users", back_populates="bookings", foreign_keys=[user_id])
-    customer = relationship('Customer', back_populates='bookings')
+    package_count = Column(Integer, default=0)
+    pickup_method = Column(Enum(PickupMethod)) 
+    booking_status = Column(Enum(PickupStatus), nullable=True)
+
+    # Relationships
     quotation = relationship('Quotations', back_populates='bookings', foreign_keys=[quotation_id])
-    creator = relationship("Users", back_populates="created_bookings", foreign_keys=[created_by])
+    customer = relationship("Customer", back_populates="bookings", foreign_keys=[customer_id])
     booking_items = relationship("BookingItem", back_populates="booking")
+
 
 # Booking Item Model
 class BookingItem(Base):
