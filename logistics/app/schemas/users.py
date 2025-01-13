@@ -1,41 +1,21 @@
 from pydantic import BaseModel, field_validator
 from typing import Optional, List
 from datetime import datetime
-from app.schemas.bookings import BookingDetailedResponse,QuotationDetailedResponse
-
-# Pydantic Models
-class User(BaseModel):
-    """
-    Pydantic model for representing a User.
-    """
-    username: str
-    email: str
-    mobile: str
-    # address: str
-    # city: str
-    # state: str
-    # pincode: Optional[int]
-    # country: str
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
+from app.schemas.bookings import BookingDetailedResponse, QuotationDetailedResponse
 
 # CreateCustomer Model (for receiving input data for creating a customer)
-class CreateUser(BaseModel):
+class UserCreate(BaseModel):
     """
     Pydantic model for receiving input data for creating a customer.
     """
-    username: str
+    user_name: str
     email: str
     mobile: str
     password: str
     role: str
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True  # Allows easy integration with SQLAlchemy 
 
@@ -59,26 +39,25 @@ class CreateUser(BaseModel):
         if "@" not in value or "." not in value.split("@")[-1]:
             raise ValueError("Invalid email format")
         return value   
-        
+
 class UpdateUser(BaseModel):
     """
     Pydantic model for receiving input data for updating a user.
     """
-    username: str
+    user_name: str
     email: str
     mobile: str
-    role:Optional[str] = None
-    
+    role: Optional[str] = None
+
     class Config:
         from_attributes = True        
-
 
 class UserWithBookingAndQuotationResponse(BaseModel):
     """
     Pydantic model for representing input data for a user with booking and quotation details.
     """
     user_id: int
-    username: str
+    user_name: str
     email: str
     mobile: str
     role: Optional[str] = None
@@ -86,29 +65,9 @@ class UserWithBookingAndQuotationResponse(BaseModel):
     updated_at: Optional[datetime] = None
     # List of bookings
     bookings: List[BookingDetailedResponse] = [] 
-     # List of quotations
+    # List of quotations
     quotations: List[QuotationDetailedResponse] = [] 
 
     class Config:
         from_attributes = True
-
-
-class GetAllUsersResponse(BaseModel):
-    """
-    Pydantic model for representing input data for all users with booking and quotation details.
-    """
-    users: List[UserWithBookingAndQuotationResponse]
-
-    class Config:
-        from_attributes = True
-
-
-class GetUserResponse(BaseModel):
-    """
-    Pydantic model for representing input data for a user with booking and quotation details.
-    """
-    user: UserWithBookingAndQuotationResponse
-
-    class Config:
-        from_attributes = True
-
+        

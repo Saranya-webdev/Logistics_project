@@ -1,66 +1,60 @@
 from app.models.users import Users
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
+from app.crud.users import get_user, create_user, update_user
+from app.utils import log_and_raise_exception,check_duplicate_email_or_mobile
+import logging
+from sqlalchemy.orm import Session
 
-def check_user_exists(db, user_id: int):
-    """
-    Check if the user exists by ID.
-    """
-    user = db.query(Users).filter(Users.user_id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail=f"User with ID {user_id} does not exist.")
-    return user
+# Configure logger
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
-def create_user(db, user_data: dict):
+def create_user_service(db, user_data: dict):
     """
     Business logic for creating a new user.
     Checks if email or mobile number already exists in the database.
     """
-    # Check if the email already exists
-    existing_email = db.query(Users).filter(Users.email == user_data['email']).first()
-    
-    # Check if the mobile number already exists
-    existing_mobile = db.query(Users).filter(Users.mobile == user_data['mobile']).first()
-
-    # If both email and mobile number exist, raise an exception
-    if existing_email and existing_mobile:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"User with email {user_data['email']} and mobile number {user_data['mobile']} already exist."
-        )
-    
-    # If only email exists, raise an exception
-    if existing_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"User with email {user_data['email']} already exists."
-        )
-    
-    # If only mobile exists, raise an exception
-    if existing_mobile:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"User with mobile number {user_data['mobile']} already exists."
-        )
-    
-    # Proceed with creating the new user if neither email nor mobile number exists
     try:
-        new_user = Users(**user_data)
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        return new_user
+        existing_user = check_duplicate_email_or_mobile(db, Users, user_data['email'], user_data['mobile'])
+        if existing_user:
+            details = []
+            if existing_user.email == user_data['email']:
+                details.append(f"Email {user_data['email']} already exists.")
+            if existing_user.mobile == user_data['mobile']:
+                details.append(f"Mobile number {user_data['mobile']} already exists.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=" ".join(details))
+        return create_user(db, user_data)
     except IntegrityError as e:
-        db.rollback()  # Rollback the transaction in case of an integrity error
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error creating user: {str(e)}")
+        db.rollback()
+        log_and_raise_exception(f"Error creating user: {str(e)}", status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        db.rollback()
+        log_and_raise_exception(f"Error creating user: {str(e)}", 500)
     
-def update_user(db, user_id: int, user_data: dict):
+def update_user_service(db, user_id: int, user_data: dict):
     """
     Business logic for updating user details.
     """
-    user = check_user_exists(db, user_id)
-    for key, value in user_data.items():
-        setattr(user, key, value)
-    db.commit()
-    db.refresh(user)
-    return user
+    user = get_user(db, user_id)
+    if not user:
+        logger.error(f"User with ID {user_id} not found")
+        raise HTTPException(status_code=404, detail="User not found")
+    try:
+        # Update each attribute of the user
+        for key, value in user_data.items():
+            setattr(user, key, value)
+        
+        # Commit changes to the database
+        db.commit()
+        db.refresh(user)
+        return user
+    except IntegrityError as e:
+        # Rollback on error and raise HTTP Exception
+        db.rollback()
+        log_and_raise_exception(f"Error updating user: {str(e)}", status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        # Rollback on any other error
+        db.rollback()
+        log_and_raise_exception(f"Error updating user with ID {user_id}: {str(e)}", 500)
+

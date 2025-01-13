@@ -9,7 +9,7 @@ class CustomerCategory(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), unique=True, nullable=False)
-    customers = relationship("Customer", back_populates="category") #one to many customers for category
+    customers = relationship("Customer", back_populates="category")  # one-to-many customers for category
 
 # Customer Type Model
 class CustomerType(Base):
@@ -23,11 +23,11 @@ class CustomerType(Base):
 class Customer(Base):
     __tablename__ = 'customers'
 
-    customer_id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False)
+    customer_id = Column(Integer, primary_key=True, index=True)  # Changed customer_id to id
+    customer_name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False, unique=True)
     mobile = Column(String(15))
-    company = Column(String(255),nullable=False)
+    company = Column(String(255), nullable=False)
     address = Column(String(255), nullable=False)
     city = Column(String(255), nullable=False)
     state = Column(String(255), nullable=False)
@@ -40,6 +40,8 @@ class Customer(Base):
     designation = Column(String(255), nullable=False)
     createddate = Column(DateTime, nullable=False, default=func.now())
     updateddate = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    
+    # Relationships
     category = relationship("CustomerCategory", back_populates="customers")
     customer_type = relationship("CustomerType", back_populates="customers")
     bookings = relationship('Bookings', back_populates='customer')

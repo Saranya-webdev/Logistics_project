@@ -4,10 +4,9 @@ from app.crud.users import get_user, create_user, update_user, delete_user
 from app.databases.mysqldb import get_db
 from sqlalchemy.exc import IntegrityError
 from app.models import Users,Bookings, Quotations
-from app.utils import validate_entry_by_id
-from app.schemas.users import (CreateUser, UpdateUser, UserWithBookingAndQuotationResponse, 
-GetAllUsersResponse, QuotationDetailedResponse, BookingDetailedResponse)
-from app.service.users import create_user, update_user, check_user_exists
+from app.schemas.users import UserCreate, UpdateUser, UserWithBookingAndQuotationResponse
+from app.service.users import create_user, update_user
+from typing import List
 import logging
 
 router = APIRouter()
@@ -17,15 +16,14 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 # Create user
-@router.post("/createuser/", response_model=CreateUser, status_code=status.HTTP_201_CREATED,
+@router.post("/createuser/", response_model=UserWithBookingAndQuotationResponse, status_code=status.HTTP_201_CREATED,
              description="Create a new user and return the created user object.")
-async def create_user_api(user: CreateUser, db: Session = Depends(get_db)):
+async def create_user_api(user: UserCreate, db: Session = Depends(get_db)):
     """
     Create a new user and return the created user object.
     """
     try:
-        new_user = create_user(db, user.dict())
-        return CreateUser.from_orm(new_user)
+        return create_user(db, user.dict())
     except IntegrityError as e:
         logger.error(f"Integrity error while creating user: {str(e)}")
         if "UNIQUE constraint failed" in str(e.orig):
@@ -34,43 +32,42 @@ async def create_user_api(user: CreateUser, db: Session = Depends(get_db)):
     
 # GET user by ID
 @router.get("/{user_id}/viewuser/", response_model=UserWithBookingAndQuotationResponse, status_code=status.HTTP_200_OK)
-async def get_user(user_id: int, db: Session = Depends(get_db)):
+async def single_user(user_id: int, db: Session = Depends(get_db)):
     """
     Retrieve a single user by ID.
     """
-    # Fetch user details
-    validate_entry_by_id(user_id, db, Users, "User")  # Validate User ID
-    user = db.query(Users).filter(Users.user_id == user_id).first()
+    user = get_user(db, user_id)
     if user is None:
         logger.error(f"User ID {user_id} not found")
         raise HTTPException(status_code=404, detail="User ID not found")
+    
     bookings = db.query(Bookings).filter(Bookings.user_id == user_id).all()
     quotations = db.query(Quotations).filter(Quotations.user_id == user_id).all()
-    return UserWithBookingAndQuotationResponse(
+    
+    # Creating the response object with all required fields
+    response = UserWithBookingAndQuotationResponse(
         user_id=user.user_id,
-        username=user.username,
+        user_name=user.user_name,  # Adjust according to your actual field name
         email=user.email,
         mobile=user.mobile,
-        role=user.role,
+        role=user.role,  # Optional, provide if available
         created_at=user.created_at,
-        updated_at=user.updated_at,
-        bookings=[BookingDetailedResponse.from_orm(booking) for booking in bookings],
-        quotations=[QuotationDetailedResponse.from_orm(quotation) for quotation in quotations]
-    )  
+        updated_at=user.updated_at,  # Optional, provide if available
+        bookings=bookings,  # Assuming these are in the correct format
+        quotations=quotations  # Assuming these are in the correct format
+    )
+    
+    return response
+
 
 # GET all users
-@router.get("/allusers", response_model=GetAllUsersResponse)
-def get_all_users(db: Session = Depends(get_db)):
+@router.get("/allusers", response_model= List[UserWithBookingAndQuotationResponse])
+def get_all_users_api(db: Session = Depends(get_db)):
     """
     Retrieve all customers.
     """
     users = db.query(Users).options(joinedload(Users.bookings), joinedload(Users.quotations)).all()
-    
-    # Convert the SQLAlchemy User instances to Pydantic models
-    user_responses = [UserWithBookingAndQuotationResponse.from_orm(user) for user in users]
-    
-    # Return the response following the GetAllUsersResponse structure
-    return GetAllUsersResponse(users=user_responses)
+    return users
 
 # UPDATE user by ID
 @router.put("/{user_id}/updateuser", response_model=UserWithBookingAndQuotationResponse, status_code=status.HTTP_200_OK)
@@ -94,4 +91,4 @@ async def delete_user(user_id: int, db: Session = Depends(get_db)):
         logger.error(f"User ID {user_id} not found")
         raise HTTPException(status_code=404, detail="User not found")
     delete_user(db, user_id)
-    return {"detail": f"User {user.username} (ID: {user.user_id}) deleted successfully"}
+    return {"detail": f"User {user.user_name} (ID: {user.user_id}) deleted successfully"}
