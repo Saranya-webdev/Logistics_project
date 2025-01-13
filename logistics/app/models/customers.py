@@ -1,7 +1,8 @@
-from sqlalchemy import Integer, String, Column, DateTime, ForeignKey
+from sqlalchemy import Integer, String, Column, DateTime, ForeignKey,Boolean
 from sqlalchemy.sql import func
 from app.models.base import Base
 from sqlalchemy.orm import relationship
+from app.models.bookings import Bookings
 
 # Customer Category Model
 class CustomerCategory(Base):
@@ -38,13 +39,16 @@ class Customer(Base):
     taxid = Column(String(255), nullable=False)
     licensenumber = Column(String(255), nullable=False)
     designation = Column(String(255), nullable=False)
-    createddate = Column(DateTime, nullable=False, default=func.now())
-    updateddate = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, nullable=False, default=func.now())
+    is_active = Column(Boolean,default=True, comment="Indicates if the customer is active or not")
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     
     # Relationships
     category = relationship("CustomerCategory", back_populates="customers")
     customer_type = relationship("CustomerType", back_populates="customers")
-    bookings = relationship('Bookings', back_populates='customer')
+    bookings = relationship('Bookings', back_populates='customer', foreign_keys=[Bookings.customer_id])
+    quotations = relationship('Quotations', back_populates='customer', foreign_keys='Quotations.customer_id')
+
 
     class Config:
         orm_mode = True

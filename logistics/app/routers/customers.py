@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.schemas.customers import CustomerCreate, CustomerResponse, CustomerUpdate
-from app.crud.customers import get_customer, create_customer, update_customer, delete_customer
+from app.schemas.customers import CustomerCreate, CustomerResponse, CustomerUpdate, CustomerCategoryResponse, CustomerTypeResponse
+from app.crud.customers import get_customer, create_customer, update_customer, delete_customer, get_customer_booking
 from app.databases.mysqldb import get_db
 from typing import List
 from sqlalchemy.exc import IntegrityError
-from app.models import Customer, Bookings, Quotations
+from app.models import Customer
 from sqlalchemy.orm import joinedload
-from app.service.customers import create_customer, update_customer
 import logging
 
 router = APIRouter()
@@ -20,9 +19,6 @@ logging.basicConfig(level=logging.INFO)
 @router.post("/createcustomer/", response_model=CustomerResponse, status_code=status.HTTP_201_CREATED,
              description="Create a new customer and return the created customer object.")
 async def create_customer_api(customer: CustomerCreate, db: Session = Depends(get_db)):
-    """
-    Create a new customer and return the created customer object.
-    """
     try:
         return create_customer(db, customer.dict())
     except IntegrityError as e:
@@ -31,76 +27,93 @@ async def create_customer_api(customer: CustomerCreate, db: Session = Depends(ge
             raise HTTPException(status_code=400, detail="Customer with this email already exists")
         raise HTTPException(status_code=500, detail="Database error occurred")
 
-# GET customer by ID
-@router.get("/{customer_id}/viewcustomer/", response_model=CustomerResponse, status_code=status.HTTP_200_OK)
-async def single_customer(customer_id: int, db: Session = Depends(get_db)):
-    """
-    Retrieve a single customer by ID.
-    """
-    customer = get_customer(db, customer_id)
-    if customer is None:
-        logger.error(f"Customer ID {customer_id} not found")
-        raise HTTPException(status_code=404, detail="Customer ID not found")
-    bookings = db.query(Bookings).filter(Bookings.customer_id == customer_id).all()
-    quotations = db.query(Quotations).filter(Quotations.customer_id == customer_id).all()
+# Search for customers by name, email, or mobile
+@router.get("/getcustomer", response_model=List[CustomerResponse])
+async def get_customer(search_term: str, db: Session = Depends(get_db)):
+    customers = db.query(Customer).filter(
+        Customer.customer_name.ilike(f"%{search_term}%") |
+        Customer.email.ilike(f"%{search_term}%") |
+        Customer.mobile.ilike(f"%{search_term}%")
+    ).options(
+        joinedload(Customer.category),
+        joinedload(Customer.customer_type)
+    ).all()
 
-    # Creating the response object with all required fields
-    response = CustomerResponse(
-        customerr_id=customer.customer_id,
-        customer_name=customer.customer_name,  # Adjust according to your actual field name
+    if not customers:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    customer_responses = [
+        CustomerResponse(
+            customer_id=customer.customer_id,
+            customer_name=customer.customer_name,
+            email=customer.email,
+            mobile=customer.mobile,
+            company=customer.company,
+            address=customer.address,
+            city=customer.city,
+            state=customer.state,
+            pincode=customer.pincode,
+            country=customer.country,
+            taxid=customer.taxid,
+            licensenumber=customer.licensenumber,
+            designation=customer.designation,
+            is_active=customer.is_active,
+            category=CustomerCategoryResponse(id=customer.category.id, name=customer.category.name) if customer.category else None,
+            customer_type=CustomerTypeResponse(id=customer.customer_type.id, name=customer.customer_type.name) if customer.customer_type else None
+        ) for customer in customers
+    ]
+
+    return customer_responses
+
+# Get all customers
+@router.get("/allcustomers", response_model=List[CustomerResponse])
+def get_all_customers(db: Session = Depends(get_db)):
+    customers = db.query(Customer).options(joinedload(Customer.bookings)).all()
+    return [CustomerResponse(
+        customer_id=customer.customer_id,
+        customer_name=customer.customer_name,
         email=customer.email,
         mobile=customer.mobile,
-        role=customer.role,  # Optional, provide if available
-        created_at=customer.created_at,
-        updated_at=customer.updated_at,  # Optional, provide if available
-        bookings=bookings,  # Assuming these are in the correct format
-        quotations=quotations  # Assuming these are in the correct format
-    )
-    
-    return response
+        company=customer.company,
+        address=customer.address,
+        city=customer.city,
+        state=customer.state,
+        pincode=customer.pincode,
+        country=customer.country,
+        taxid=customer.taxid,
+        licensenumber=customer.licensenumber,
+        designation=customer.designation,
+        is_active=customer.is_active,
+        category=customer.category,
+        customer_type=customer.customer_type
+    ) for customer in customers]
 
-
-# GET all customers
-@router.get("/allcustomers", response_model=List[CustomerResponse])
-def get_all_customers_api(db: Session = Depends(get_db)):
-    """
-    Retrieve all customers.
-    """
-    customers = db.query(Customer).options(joinedload(Customer.bookings)).all()
-    return customers
-
-# UPDATE customer by ID
+# Update customer by ID
 @router.put("/{customer_id}/updatecustomer", response_model=CustomerResponse, status_code=status.HTTP_200_OK)
 async def edit_customer_api(customer_id: int, customer: CustomerUpdate, db: Session = Depends(get_db)):
-    """
-    Update customer information by ID.
-    If no fields to update are provided, return existing customer data.
-    """
     if not any(value is not None for value in customer.dict().values()):
         raise HTTPException(status_code=400, detail="No fields to update")
-    
-    # Retrieve the existing customer details
+
     existing_customer = get_customer(db, customer_id)
     if existing_customer is None:
         raise HTTPException(status_code=404, detail="Customer ID not found")
-    
-    # Update the customer details with provided fields
+
     updated_customer = update_customer(db, customer_id, customer.dict(exclude_unset=True))
-    
-    # Return the updated customer details
     return updated_customer
 
+# Get customer with booking details
+@router.get("/customer/{customer_id}/booking")
+def get_customer_booking_details(customer_id: int, db: Session = Depends(get_db)):
+    return get_customer_booking(customer_id, db)
 
-
-# DELETE customer by ID
+# Delete customer by ID
 @router.delete("/{customer_id}/deletecustomer", status_code=status.HTTP_200_OK)
 async def delete_customer_api(customer_id: int, db: Session = Depends(get_db)):
-    """
-    Delete a customer by ID.
-    """
-    customer = get_customer(db, customer_id)
+    customer = get_customer(db, customer_id)  # Ensure you're getting the full model instance here, not a dictionary
     if not customer:
         logger.error(f"Customer ID {customer_id} not found")
         raise HTTPException(status_code=404, detail="Customer not found")
     delete_customer(db, customer_id)
+    # You can access model attributes here directly if customer is an instance of the model
     return {"detail": f"Customer {customer.customer_name} (ID: {customer.customer_id}) deleted successfully"}
+

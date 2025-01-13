@@ -2,8 +2,8 @@ from sqlalchemy.orm import Session,joinedload
 from app.schemas.bookings import BookingCreate, QuotationCreate, AddressBookCreate
 from fastapi import HTTPException
 import logging
-from app.models.bookings import Bookings, BookingItem
 from app.models.quotations import QuotationItems,Quotations
+from app.models.bookings import Bookings, BookingItem
 from app.models.addressbooks import AddressBook
 
 
@@ -18,7 +18,7 @@ def create_booking(db: Session, booking: BookingCreate):
     """
     try:
         db_booking = Bookings(
-            user_id=booking.user_id,
+            customer_id=booking.customer_id,
             created_by=booking.created_by,
             pickup_method=booking.pickup_method,
             booking_status=booking.booking_status,
@@ -40,6 +40,7 @@ def create_booking(db: Session, booking: BookingCreate):
             to_pincode=booking.to_pincode,
             estimated_delivery_cost=booking.estimated_delivery_cost,
             estimated_delivery_date=booking.estimated_delivery_date,
+            package_count = booking.package_count,
             pickup_time=booking.pickup_time,
             pickup_date=booking.pickup_date,
             created_at=booking.created_at,
@@ -51,20 +52,20 @@ def create_booking(db: Session, booking: BookingCreate):
 
         # Add items if they exist
         if booking.booking_items:
-            items_to_add = []
-            for item in booking.booking_items:
-                db_item = BookingItem(
-                    booking_id=db_booking.booking_id,
-                    weight=item.weight,
-                    length=item.length,
-                    width=item.width,
-                    height=item.height,
-                    package_type=item.package_type,
-                    cost=item.cost,
-                )
-                items_to_add.append(db_item)
-            db.add_all(items_to_add)
-            db.commit()  # Commit after adding items
+           items_to_add = []
+           for item in booking.booking_items:
+               db_item = BookingItem(
+               booking_id=db_booking.booking_id,
+               weight=item.weight,
+               length=item.length,
+               width=item.width,
+               height=item.height,
+               package_type=item.package_type,
+               cost=item.cost,
+               )
+               items_to_add.append(db_item)
+           db.add_all(items_to_add)  # This should be outside the loop
+           db.commit()  # Only one commit after adding all items
 
         return db_booking
     except Exception as e:
@@ -93,13 +94,16 @@ def get_all_bookings(db: Session):
     Retrieve all bookings from the database with their quotation details.
     """
     try:
-       return db.query(Bookings).options(joinedload(Bookings.quotation)).all
+       return db.query(Bookings).options(joinedload(Bookings.quotation)).all()
     except Exception as e:
         logger.error(f"Error fetching all bookings: {str(e)}")
         raise
 
 # Updates a booking by ID.
 def update_booking(db: Session, booking_id: int, update_data: dict):
+    """
+    update an existing booking in the database.
+    """
     existing_booking = db.query(Bookings).filter(Bookings.booking_id == booking_id).first()
     if not existing_booking:
         return None
@@ -160,7 +164,7 @@ def create_quotation(db: Session, quotation: QuotationCreate):
     try:
         # Create booking record
         db_quotation = Quotations(
-            user_id=quotation.user_id,
+            customer_id=quotation.customer_id,
             created_by=quotation.created_by,
             pickup_method=quotation.pickup_method,
             valid_until=quotation.valid_until,
@@ -172,20 +176,22 @@ def create_quotation(db: Session, quotation: QuotationCreate):
 
         # Add quotation items
         if quotation.quotation_items:
-            items_to_add = []
-            for item in quotation.quotation_items:
-                db_item = QuotationItems(
-                    quotation_id=db_quotation.quotation_id,
-                    weight=item.weight,
-                    length=item.length,
-                    width=item.width,
-                    height=item.height,
-                    package_type=item.package_type,
-                    cost=item.cost,)
-                items_to_add.append(db_item)
-                db.add_all(items_to_add)
-                db.commit()
-                return db_quotation
+           items_to_add = []
+           for item in quotation.quotation_items:
+               db_item = QuotationItems(
+               quotation_id=db_quotation.quotation_id,
+               weight=item.weight,
+               length=item.length,
+               width=item.width,
+               height=item.height,
+               package_type=item.package_type,
+               cost=item.cost,
+               )
+               items_to_add.append(db_item)
+           db.add_all(items_to_add)
+           db.commit()  # Commit after adding all items
+
+        return db_quotation
     except Exception as e:
         db.rollback()
         logger.error(f"Error creating quotation: {str(e)}")
@@ -211,7 +217,7 @@ def get_all_quotations(db: Session):
     Retrieve all quotations from the database with their quotation items.
     """
     try:
-       return db.query(Quotations).options(joinedload(Bookings.booking_items)).all()
+       return db.query(Quotations).options(joinedload(Quotations.quotation_items)).all()
     except Exception as e:
         logger.error(f"Error fetching all quotations: {str(e)}")
         raise
@@ -281,7 +287,7 @@ def create_address_book(db: Session, address: AddressBookCreate):
     """
     try:
         db_address = AddressBook(
-        user_id=address.user_id,
+        customer_id=address.customer_id,
         name=address.name,
         address_line_1=address.address_line_1,
         address_line_2=address.address_line_2,
@@ -331,7 +337,8 @@ def update_address_book(db: Session, address_id: int, address_data: dict):
     Update an existing address book by their ID.
     """
     try:
-       db_address = db.query(AddressBook).filter(AddressBook.id == address_id).first()
+       db_address = db.query(AddressBook).filter(AddressBook.address_id == address_id).first()
+
        if db_address:
         for key, value in address_data.items():
             if value is not None:

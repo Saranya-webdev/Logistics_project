@@ -3,8 +3,6 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 # from app.databases.mysqldb import Base
 import enum
-from app.models.bookings import Bookings
-from app.models.quotations import Quotations
 from app.models.base import Base
 
 # User Role Enum
@@ -25,8 +23,9 @@ class Users(Base):
     role = Column(Enum(UserRole), nullable=False)
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    bookings = relationship("Bookings", back_populates="user", foreign_keys=[Bookings.user_id])
-    quotations = relationship("Quotations", back_populates="user", foreign_keys=[Quotations.user_id])
-    created_bookings = relationship("Bookings", back_populates="creator", foreign_keys=[Bookings.created_by])
-    created_quotations = relationship("Quotations", back_populates="created_by_user", foreign_keys=[Quotations.created_by])
-    address_books = relationship("AddressBook", back_populates="user")
+    extend_existing=True
+
+    class Config:
+        orm_mode = True
+
+    
