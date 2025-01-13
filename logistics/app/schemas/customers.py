@@ -1,111 +1,82 @@
-from pydantic import BaseModel, field_validator
-from typing import Optional, List
-from datetime import datetime
-from app.models.customers import CustomerCategory, CustomerType 
-from fastapi import HTTPException
-from sqlalchemy.orm import Session
-from app.schemas.bookings import BookingDetailedResponse
+from pydantic import BaseModel
+from typing import Optional
 
-# Pydantic Models
-class Customer(BaseModel):
+
+# Pydantic Schema for Customer Category
+class CustomerCategoryBase(BaseModel):
     """
-    Pydantic model for representing a Customer.
+    Pydantic model for representing a customer's category.
     """
     name: str
+
+    class Config:
+        from_attributes = True
+
+class CustomerCategoryCreate(CustomerCategoryBase):
+    pass
+
+class CustomerCategoryResponse(CustomerCategoryBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+# Pydantic Schema for Customer Type
+class CustomerTypeBase(BaseModel):
+    name: str
+
+    class Config:
+        from_attributes = True
+
+class CustomerTypeCreate(CustomerTypeBase):
+    pass
+
+class CustomerTypeResponse(CustomerTypeBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+# Pydantic Schema for Customer
+class CustomerBase(BaseModel):
+    customer_name: str
     email: str
-    mobile: str
+    mobile: Optional[str]
+    company: str
     address: str
     city: str
     state: str
     pincode: Optional[int]
     country: str
-    category_id: int
-    type_id: Optional[int]  # Updated to match the database model
     taxid: str
     licensenumber: str
     designation: str
-    company: str
-    createddate: datetime
-    updateddate: datetime
 
     class Config:
         from_attributes = True
 
-
-class CustomerResponse(Customer):
-    """
-    Pydantic model for representing the response of a Customer.
-    """
-    customer_id: int
-    bookings: List[BookingDetailedResponse]
-
-    class Config:
-        from_attributes = True
-
-
-# CreateCustomer Model (for receiving input data for creating a customer)
-class CreateCustomer(BaseModel):
+class CustomerCreate(CustomerBase):
     """
     Pydantic model for receiving input data for creating a customer.
     """
-    name: str
-    email: str
-    mobile: Optional[str]
-    address: str
-    city: str
-    state: str
-    pincode: Optional[int]
-    country: str
     category_id: int
-    type_id: int
-    taxid: str
-    licensenumber: str
-    designation: str
-    company: str
-
-    class Config:
-        from_attributes = True  # Allows easy integration with SQLAlchemy
-
-    # Custom validator for mobile field
-    @field_validator('mobile', mode='before')
-    def validate_mobile(cls, value):
-        """
-        Validate the format of the mobile number.
-        """
-        if value and (len(value) != 10 or not value.isdigit()):
-            raise ValueError('Mobile number must be a 10-digit number.')
-        return value
-
-    # Custom validator for email field
-    @field_validator('email', mode='before')
-    def validate_email(cls, value):
-        """
-        Validate the format of the email address.
-        """
-        # Check if the email contains "@" and a valid domain
-        if "@" not in value or "." not in value.split("@")[-1]:
-            raise ValueError("Invalid email format")
-        return value
-
-
-class UpdateCustomer(BaseModel):
-    """
-    Pydantic model for receiving input data for updating a customer.
-    """
-    name: Optional[str]
-    email: Optional[str]
-    mobile: Optional[str]
-    address: Optional[str]
-    city: Optional[str]
-    state: Optional[str]
-    pincode: Optional[int]
-    country: Optional[str]
-    category_id: Optional[int]
     type_id: Optional[int]
-    taxid: Optional[str]
-    licensenumber: Optional[str]
-    designation: Optional[str]
-    company: Optional[str]
+
+class CustomerResponse(CustomerBase):
+    customer_id: int
+    category: CustomerCategoryResponse
+    customer_type: Optional[CustomerTypeResponse]
 
     class Config:
         from_attributes = True
+
+class CustomerUpdate(CustomerBase):
+    category_id: Optional[int]
+    type_id: Optional[int]
+
+    class Config:
+        from_attributes = True
+
+
+
+

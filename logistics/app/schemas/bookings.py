@@ -89,7 +89,7 @@ class BookingUpdate(BaseModel):
     """
     Pydantic model for receiving input data for updating a booking.
     """
-    booking_id: int
+    # booking_id: int
     user_id: Optional[int] = None
     created_by: Optional[int] = None
     pickup_method: Optional[PickupMethod] = None
@@ -244,3 +244,15 @@ class AddressBookUpdate(BaseModel):
 
     class Config:
         from_attributes = True        
+
+
+class UserOrCustomerWithBookingsResponse(BaseModel):
+    booking_id: int
+    name: str
+    email: str
+    phone_number: str
+    created_at: datetime
+    bookings: List[BookingDetailedResponse]
+
+    class Config:
+        from_attributes = True
