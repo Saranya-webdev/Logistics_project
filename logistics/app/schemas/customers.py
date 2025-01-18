@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 from typing import Optional, List
-from app.schemas.bookings import BookingDetailedResponse,QuotationDetailedResponse
 
 
 # Pydantic Schema for Customer Category
@@ -72,6 +71,28 @@ class CustomerResponse(CustomerBase):
     class Config:
         from_attributes = True
 
+class CustomerListResponse(BaseModel):
+    customer_name: str
+    mobile: Optional[str]
+    email: str
+
+    class Config:
+        from_attributes = True    
+
+# Response model for detailed customer information
+class CustomerDetailResponse(BaseModel):
+    customer_name: str
+    mobile: Optional[str]
+    email: str
+    address: str
+    city: str
+    state: str
+    country: str
+    pincode: Optional[int]
+
+    class Config:
+        from_attributes = True            
+
 class CustomerUpdate(CustomerBase):
     category_id: Optional[int]
     type_id: Optional[int]
@@ -80,3 +101,41 @@ class CustomerUpdate(CustomerBase):
         from_attributes = True
 
 
+# Response model for a booking list item
+class BookingListItem(BaseModel):
+    from_city: str
+    from_pincode: Optional[int]
+    to_city: str
+    to_pincode: Optional[int]
+    type: str
+    status: str
+    action: str
+
+    class Config:
+        from_attributes = True
+
+# Response model for customer's booking list
+class CustomerBookingListResponse(BaseModel):
+    customer_name: str
+    bookings: List[BookingListItem]
+
+    class Config:
+        from_attributes = True
+
+
+# Response model for detailed booking information
+class CustomerBookingDetailResponse(BaseModel):
+    name: str
+    from_address: str
+    to_address: str
+    length: float
+    height: float
+    weight: float
+    width: float
+    package_type: str
+    cost: float
+    delivery_date: str
+    num_packages: int
+
+    class Config:
+        from_attributes = True        

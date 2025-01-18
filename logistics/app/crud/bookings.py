@@ -17,6 +17,7 @@ def create_booking(db: Session, booking: BookingCreate):
     Create a new booking in the database.
     """
     try:
+        # Create the main booking object (no package_type here)
         db_booking = Bookings(
             customer_id=booking.customer_id,
             created_by=booking.created_by,
@@ -50,28 +51,29 @@ def create_booking(db: Session, booking: BookingCreate):
         db.commit()
         db.refresh(db_booking)
 
-        # Add items if they exist
+        # Add items to the BookingItem table, including package_type
         if booking.booking_items:
            items_to_add = []
            for item in booking.booking_items:
                db_item = BookingItem(
-               booking_id=db_booking.booking_id,
-               weight=item.weight,
-               length=item.length,
-               width=item.width,
-               height=item.height,
-               package_type=item.package_type,
-               cost=item.cost,
+                   booking_id=db_booking.booking_id,
+                   weight=item.weight,
+                   length=item.length,
+                   width=item.width,
+                   height=item.height,
+                   package_type=item.package_type,  # Correct place for package_type
+                   cost=item.cost,
                )
                items_to_add.append(db_item)
-           db.add_all(items_to_add)  # This should be outside the loop
-           db.commit()  # Only one commit after adding all items
+           db.add_all(items_to_add)
+           db.commit()
 
         return db_booking
     except Exception as e:
         db.rollback()
         logger.error(f"Error creating a booking: {str(e)}")
         raise
+
 
 
 # Fetches a booking by ID.
