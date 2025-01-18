@@ -38,6 +38,7 @@ class Bookings(Base):
     pickup_method = Column(Enum(PickupMethod)) 
     booking_status = Column(Enum(PickupStatus), nullable=True)
 
+
     # Relationships
     quotation = relationship('Quotations', back_populates='bookings', foreign_keys=[quotation_id])
     customer = relationship("Customer", back_populates="bookings", foreign_keys=[customer_id])
