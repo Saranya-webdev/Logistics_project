@@ -1,7 +1,7 @@
 from pydantic import BaseModel, field_validator
 from typing import Optional, List
 from datetime import datetime
-from app.schemas.bookings import BookingDetailedResponse, QuotationDetailedResponse
+
 
 # CreateCustomer Model (for receiving input data for creating a customer)
 class UserCreate(BaseModel):

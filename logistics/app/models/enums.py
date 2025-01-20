@@ -16,3 +16,16 @@ class PickupStatus(str, enum.Enum):
     shipped = 'shipped'
     delivered = 'delivered'
     cancelled = 'cancelled'
+
+class PaymentStatus(str, enum.Enum):
+    picked = "Picked"
+    transit = "In Transit"
+    delivered = "Delivered"
+
+class RatingEnum(int, enum.Enum):
+    one = 1
+    two = 2
+    three = 3
+    four = 4
+    five = 5    
+  

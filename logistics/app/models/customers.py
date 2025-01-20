@@ -16,7 +16,7 @@ class CustomerCategory(Base):
 class CustomerType(Base):
     __tablename__ = 'customer_types'
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     name = Column(String, unique=True)
     customers = relationship("Customer", back_populates="customer_type")
 
@@ -24,7 +24,7 @@ class CustomerType(Base):
 class Customer(Base):
     __tablename__ = 'customers'
 
-    customer_id = Column(Integer, primary_key=True, index=True)  # Changed customer_id to id
+    customer_id = Column(Integer, primary_key=True)  # Changed customer_id to id
     customer_name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False, unique=True)
     mobile = Column(String(15))
@@ -32,7 +32,7 @@ class Customer(Base):
     address = Column(String(255), nullable=False)
     city = Column(String(255), nullable=False)
     state = Column(String(255), nullable=False)
-    pincode = Column(Integer, nullable=True)
+    pincode = Column(String(255), nullable=True)
     country = Column(String(255), nullable=False)
     category_id = Column(Integer, ForeignKey('customer_categories.id'), nullable=False)
     type_id = Column(Integer, ForeignKey('customer_types.id'), nullable=True)

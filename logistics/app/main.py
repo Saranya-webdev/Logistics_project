@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from app.databases.mysqldb import engine, get_db
 from app.models.base import Base
-from app.routers import customers, agents, users, bookings
+from app.routers import customers, agents, users, bookings,quotations,addressbook
 from app.crud.customers import populate_categories, populate_customer_types
 from app.routers.BookingStatistics import booking_router
 import logging
@@ -21,7 +21,10 @@ app.include_router(customers.router, prefix="/thisaiapi/customers", tags=["Custo
 app.include_router(agents.router, prefix="/thisaiapi/agents", tags=["Agents"])
 app.include_router(users.router, prefix="/thisaiapi/users", tags=["Users"])
 app.include_router(bookings.router, prefix="/thisaiapi/bookings", tags=["Bookings"])
+app.include_router(quotations.router, prefix='/thisaiapi/quotations', tags=["Quotations"])
+app.include_router(addressbook.router, prefix='/thisaiapi/addressbook', tags=["AddressBook"])
 app.include_router(booking_router, prefix="/thisaiapi/bookingstatics", tags=["Booking Statistics"])
+
 
 # Startup Event
 @app.on_event("startup")

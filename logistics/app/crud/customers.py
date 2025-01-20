@@ -1,25 +1,21 @@
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from app.models.customers import Customer, CustomerCategory, CustomerType
-from app.models.bookings import Bookings
+from app.models.bookings import Bookings,BookingItem
 from app.schemas.customers import CustomerResponse
-from app.utils import validate_entry_by_id, log_and_raise_exception, get_entity_by_id, populate_dynamic_entries
+from app.utils import log_and_raise_exception, get_entity_by_id, populate_dynamic_entries
 from sqlalchemy import or_
 from typing import Optional
 import logging
 from fastapi import HTTPException
+from app.service.customers import create_customer_service, update_customer_service
 
-
+# CRUD operation for create customer
 def create_customer(db: Session, customer_data: dict):
     """
     Create a new customer in the database.
     """
     try:
-        if 'category_id' not in customer_data or 'type_id' not in customer_data:
-            raise ValueError("Missing category_id or type_id in customer data")
-
-        validate_entry_by_id(customer_data['category_id'], db, CustomerCategory, 'id')
-        validate_entry_by_id(customer_data['type_id'], db, CustomerType, 'id')
-
+        customer_data = create_customer_service(db, customer_data)
         db_customer = Customer(**customer_data)
         db.add(db_customer)
         db.commit()
@@ -27,23 +23,20 @@ def create_customer(db: Session, customer_data: dict):
         return db_customer
     except Exception as e:
         db.rollback()
-        log_and_raise_exception(f"Error creating customer: {str(e)}", 500)
+        raise HTTPException(status_code=500, detail=f"Error creating customer: {str(e)}")
 
-
+# CRUD operation for get all customers
 def get_all_customers(db: Session):
     """
     Retrieves all customers from the database and returns them in the CustomerResponse format.
     """
     try:
         customers = db.query(Customer).all()
-
         # Log the results of the query
         logging.info(f"Fetched customers: {customers}")
-
         if not customers:
             logging.info("No customers found, returning empty list.")
             return []  # Return an empty list if no customers are found
-
         # Return the formatted response as a list
         return [
             CustomerResponse(
@@ -68,7 +61,7 @@ def get_all_customers(db: Session):
         logging.error(f"Error fetching customers: {str(e)}")
         return []  # Ensure returning an empty list in case of an error
 
-
+# CRUD operation for get customer
 def get_customer(db: Session, search_term: str, active: Optional[bool] = True):
     """
     Retrieve customers from the database based on a search term, with additional fields like city, state, country, and pincode.
@@ -76,7 +69,6 @@ def get_customer(db: Session, search_term: str, active: Optional[bool] = True):
     try:
         if not search_term:
             return {"detail": "Search term cannot be empty"}
-
         query = db.query(Customer).filter(
             or_(
                 Customer.customer_name.ilike(f"%{search_term}%"),
@@ -86,7 +78,6 @@ def get_customer(db: Session, search_term: str, active: Optional[bool] = True):
         )
         if active is not None:
             query = query.filter(Customer.is_active == active)
-
         customers = query.all()
         if customers:
             customer_data = []
@@ -107,12 +98,11 @@ def get_customer(db: Session, search_term: str, active: Optional[bool] = True):
                     "is_active": customer.is_active,
                 })
             return customer_data
-
         return {"detail": "Customer not found"}
     except Exception as e:
         log_and_raise_exception(f"Error searching for customer with term {search_term}: {str(e)}", 500)
 
-
+# CRUD operation for get customer's booking list
 def get_customer_booking_list(customer_id: int, db: Session):
     """
     Retrieve a customer with booking list details.
@@ -120,32 +110,31 @@ def get_customer_booking_list(customer_id: int, db: Session):
     try:
         # Fetch the customer details
         customer = db.query(Customer).filter(Customer.customer_id == customer_id).first()
-
         if not customer:
             raise HTTPException(status_code=404, detail="Customer not found")
-
         # Fetch the bookings for the given customer
         bookings = db.query(Bookings).filter(Bookings.customer_id == customer_id).all()
-
         # Format the booking list
-        booking_list = [
-            {
-                "booking_id": booking.booking_id,
-                "from_city": booking.city,
-                "from_pincode": booking.pincode,
-                "to_city": booking.to_city, 
-                "to_pincode": booking.to_pincode,
-                "type": booking.package_type if hasattr(booking, 'package_type') else "N/A",
-                "status": booking.booking_status,
-                "action": f"View details of Booking {booking.booking_id}",
-            }
-            for booking in bookings
-        ]
-        
+        booking_list = []
+        for booking in bookings:
+            # Get the related booking items
+            booking_items = db.query(BookingItem).filter(BookingItem.booking_id == booking.booking_id).all()
+            # For each booking item, get the package type
+            for item in booking_items:
+                booking_list.append({
+                    "booking_id": booking.booking_id,
+                    "from_city": booking.city,
+                    "from_pincode": booking.pincode,
+                    "to_city": booking.to_city,
+                    "to_pincode": booking.to_pincode,
+                    "type": item.package_type.name if item.package_type else "N/A",  # Access the package_type from BookingItem
+                    "status": booking.booking_status,
+                    "action": f"View details of Booking {booking.booking_id}",
+                })
         # Return customer and booking list details
         return {
             "customer_name": customer.customer_name,
-            "mobile": customer.mobile,  # Assuming the `Customer` table has a `phone_number` column
+            "mobile": customer.mobile,
             "email": customer.email,
             "address": customer.address,
             "city": customer.city,
@@ -154,26 +143,23 @@ def get_customer_booking_list(customer_id: int, db: Session):
             "pincode": customer.pincode,
             "bookings": booking_list
         }
-
     except Exception as e:
         logging.error(f"Error fetching booking list for customer {customer_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching booking list: {str(e)}")
 
-
+# CRUD operation for get customer's specific booking details
 def get_customer_booking_details(db: Session, customer_id: int, booking_id: int):
     try:
         # Query the booking with the specified customer_id and booking_id
         booking = db.query(Bookings).filter(Bookings.customer_id == customer_id, Bookings.booking_id == booking_id).first()
-
         if not booking:
             raise HTTPException(status_code=404, detail="Booking not found")
-
+        
         # Retrieve the customer details
         customer = db.query(Customer).filter(Customer.customer_id == customer_id).first()
-
         if not customer:
             raise HTTPException(status_code=404, detail="Customer not found")
-
+        
         # Map the result to the Pydantic model for response
         booking_response = {
             "customer_name": customer.customer_name,
@@ -196,55 +182,53 @@ def get_customer_booking_details(db: Session, customer_id: int, booking_id: int)
                     "No_of_Packages": booking.package_count,
                     "Pickup_Date": booking.pickup_date,
                     "Pickup_Time": booking.pickup_time,
+                    "estimated_delivery_date": booking.estimated_delivery_date,
+
+                    "pickup_date": booking.pickup_date,
+                    "pickup_time": booking.pickup_time,
                 }
             ],
             "item_details": [
-                {
-                    "booking_id": item.booking_id,
+                {   
                     "item_id": item.item_id,
+                    "booking_id": item.booking_id,
                     "weight": item.weight,
                     "length": item.length,
                     "width": item.width,
                     "height": item.height,
-                    "package_type": item.package_type.name,  # Convert enum to string
+                    "package_type": item.package_type,  # Convert enum to string
                     "cost": item.cost,
+                    "ratings":item.rating,
                 }
                 for item in booking.booking_items
             ]
         }
-
         return booking_response
-
     except Exception as e:
-        logging.error(f"Error fetching booking details for booking_id {booking_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-
-
-
-
+        raise HTTPException(status_code=500, detail=str(e))
+    
+# CRUD operation for update customer
 def update_customer(db: Session, customer_id: int, customer_data: dict):
     """
     update an existing customer in the database.
     """
-    existing_customer = get_entity_by_id(db, Customer, customer_id, 'customer_id')
     try:
-        if 'category_id' in customer_data:
-            validate_entry_by_id(customer_data['category_id'], db, CustomerCategory, 'id')
-
-        if 'type_id' in customer_data:
-            validate_entry_by_id(customer_data['type_id'], db, CustomerType, 'id')
-
+        # Call the service function to handle validation and business logic
+        customer_data = update_customer_service(db, customer_id, customer_data)
+        # Proceed with updating the customer if validation passes
+        existing_customer = db.query(Customer).filter(Customer.id == customer_id).first()
+        if not existing_customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
         for key, value in customer_data.items():
             setattr(existing_customer, key, value)
-
         db.commit()
         db.refresh(existing_customer)
         return existing_customer
     except Exception as e:
         db.rollback()
-        log_and_raise_exception(f"Error updating customer with ID {customer_id}: {str(e)}", 500)
-
+        raise HTTPException(status_code=500, detail=f"Error updating customer with ID {customer_id}: {str(e)}")
+    
+# CRUD operation for delete customer
 def delete_customer(db: Session, customer_id: int):
     """
     delete a customer from the database.

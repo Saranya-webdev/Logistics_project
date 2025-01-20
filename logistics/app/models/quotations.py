@@ -9,7 +9,7 @@ from app.models.bookings import Bookings
 class Quotations(Base):
     __tablename__ = "quotations"
 
-    quotation_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    quotation_id = Column(Integer, primary_key=True,autoincrement=True)
     customer_id = Column(Integer, ForeignKey('customers.customer_id'))
     created_by = Column(Integer, ForeignKey("customers.customer_id"))
     pickup_method = Column(Enum(PickupMethod), nullable=False, name='pickup_method')
@@ -17,7 +17,7 @@ class Quotations(Base):
     valid_until = Column(Date, nullable=False)
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    booking_status = Column(Enum(PickupStatus), nullable=True)
+    quotation_status = Column(Enum(PickupStatus), nullable=True)
 
     # Relationships
     quotation_items = relationship("QuotationItems", back_populates="quotation", uselist=True)
@@ -31,7 +31,7 @@ class Quotations(Base):
 class QuotationItems(Base):
     __tablename__ = "quotation_items"
 
-    item_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    item_id = Column(Integer, primary_key=True,  autoincrement=True)
     quotation_id = Column(Integer, ForeignKey("quotations.quotation_id"), nullable=False)
     weight = Column(DECIMAL(10, 2), nullable=False)
     length = Column(DECIMAL(10, 2), nullable=False)

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.schemas.customers import CustomerCreate, CustomerResponse, CustomerUpdate, CustomerListResponse, CustomerDetailResponse, CustomerBookingListResponse
+from app.schemas.customers import CustomerCreate, CustomerResponse, CustomerUpdate, CustomerListResponse, CustomerDetailedResponse, CustomerBookingListResponse
 from app.schemas.bookings import BookingDetailedResponse
 from app.crud.customers import get_customer, create_customer, update_customer, delete_customer, get_customer_booking_details,get_all_customers,get_customer_booking_list
 from app.databases.mysqldb import get_db
@@ -27,7 +27,7 @@ async def create_customer_api(customer: CustomerCreate, db: Session = Depends(ge
         raise HTTPException(status_code=500, detail="Database error occurred")
 
 # Search for customers by name, email, or mobile
-@router.get("/getcustomer", response_model=List[CustomerDetailResponse])
+@router.get("/getcustomer", response_model=List[CustomerDetailedResponse])
 async def get_customer_api(search_term: str, db: Session = Depends(get_db)):
     customers = get_customer(db, search_term)
     if isinstance(customers, dict) and "detail" in customers:

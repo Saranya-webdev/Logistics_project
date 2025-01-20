@@ -1,7 +1,7 @@
+# models/users.py
 from sqlalchemy import Integer, String, Column, DateTime, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-# from app.databases.mysqldb import Base
 import enum
 from app.models.base import Base
 
@@ -25,7 +25,8 @@ class Users(Base):
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     extend_existing=True
 
+    # Relationship back to AddressBook
+    address_books = relationship("AddressBook", back_populates="user")
+
     class Config:
         orm_mode = True
-
-    
