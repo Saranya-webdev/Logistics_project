@@ -80,7 +80,7 @@ class CustomerListResponse(BaseModel):
         from_attributes = True    
 
 # Response model for detailed customer information
-class CustomerDetailResponse(BaseModel):
+class CustomerDetailedResponse(BaseModel):
     customer_name: str
     mobile: Optional[str]
     email: str
@@ -124,7 +124,7 @@ class CustomerBookingListResponse(BaseModel):
 
 
 # Response model for detailed booking information
-class CustomerBookingDetailResponse(BaseModel):
+class CustomerBookingDetailedResponse(BaseModel):
     name: str
     from_address: str
     to_address: str

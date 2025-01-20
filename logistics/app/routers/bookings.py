@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session,joinedload
-from app.schemas.bookings import BookingCreate, BookingDetailedResponse, BookingUpdate,AddressBookCreate, AddressBookResponse, AddressBookUpdate,QuotationCreate, QuotationDetailedResponse, QuotationUpdate
+from app.schemas.bookings import BookingCreate, BookingDetailedResponse, BookingUpdate
+from app.schemas.addressbook import AddressBookCreate, AddressBookResponse, AddressBookUpdate
+from app.schemas.quotations import QuotationCreate, QuotationDetailedResponse, QuotationUpdate
 from app.databases.mysqldb import get_db
 from typing import List
 from sqlalchemy.exc import IntegrityError
@@ -8,9 +10,9 @@ from app.models.bookings import Bookings, BookingItem
 from app.models.quotations import Quotations
 from app.models.addressbooks import AddressBook
 from fastapi.exceptions import RequestValidationError
-from app.crud.bookings import get_booking, create_booking, update_booking, delete_booking, \
-                             get_address_book, create_address_book, update_address_book, delete_address_book, \
-                             get_quotation, create_quotation, update_quotation, delete_quotation
+from app.crud.bookings import get_booking, create_booking, update_booking, delete_booking
+from app.crud.addressbook import get_address_book, create_address_book, update_address_book, delete_address_book
+from app.crud.quotations import get_quotation, create_quotation, update_quotation, delete_quotation
 
 router = APIRouter()
 
@@ -24,6 +26,8 @@ async def create_new_booking(booking: BookingCreate, db: Session = Depends(get_d
         if "UNIQUE constraint failed" in str(e.orig):
             raise HTTPException(status_code=400, detail="Booking with this identifier already exists")
         raise HTTPException(status_code=500, detail="Database error occurred")
+
+
 
 
 # GET booking by ID
@@ -118,96 +122,3 @@ async def delete_booking_api(booking_id: int, db: Session = Depends(get_db)):
     delete_booking(db, booking_id)
     return {"status": "success", "message": f"Booking (ID: {booking_id}) deleted successfully"}
 
-# Create quotation
-@router.post("/createquotation/", response_model=QuotationDetailedResponse, status_code=status.HTTP_201_CREATED)
-async def create_quotation_api(quotation: QuotationCreate, db: Session = Depends(get_db)):
-    try:
-        return create_quotation(db, quotation)
-    except RequestValidationError as e:
-        raise HTTPException(status_code=400, detail=f"Validation error: {e.errors()}")
-    except IntegrityError as e:
-        if "UNIQUE constraint failed" in str(e.orig):
-            raise HTTPException(status_code=400, detail="Quotation with this identifier already exists")
-        raise HTTPException(status_code=500, detail="Database error occurred")
-
-# GET quotation by ID
-@router.get("/{quotation_id}/viewquotation/", response_model=QuotationDetailedResponse)
-async def get_quotation_api(quotation_id: int, db: Session = Depends(get_db)):
-    quotation = (
-        db.query(Quotations)
-        .options(joinedload(Quotations.quotation_items))
-        .filter(Quotations.quotation_id == quotation_id)
-        .first()
-    )
-    if not quotation:
-        raise HTTPException(status_code=404, detail="Quotation not found")
-    return QuotationDetailedResponse.from_orm(quotation)   
-
-# GET all quotations
-@router.get("/allquotations", response_model=List[QuotationDetailedResponse])
-def get_all_quotations_api(db: Session = Depends(get_db)):
-    quotations = db.query(Quotations).all()
-    return [QuotationDetailedResponse.from_orm(q) for q in quotations]
-
-# UPDATE quotation by ID
-@router.put("/{quotation_id}/updatequotation", response_model=QuotationDetailedResponse, status_code=status.HTTP_200_OK)
-async def update_quotation_api(quotation_id: int, quotation: QuotationUpdate, db: Session = Depends(get_db)):
-    if not any(value is not None for value in quotation.dict().values()):
-        raise HTTPException(status_code=400, detail="No fields to update")
-
-    updated_quotation = update_quotation(db, quotation_id, quotation.dict(exclude_unset=True))
-    return updated_quotation
-
-
-# DELETE quotation by ID
-@router.delete("/{quotation_id}/deletequotation", status_code=status.HTTP_200_OK)
-async def delete_quotation_api(quotation_id: int, db: Session = Depends(get_db)):
-    db_quotation = get_quotation(db, quotation_id)
-    if not db_quotation:
-        raise HTTPException(status_code=404, detail="Quotation not found")
-    delete_quotation(db, quotation_id)
-    return {"detail": f"Quotation (ID: {quotation_id}) deleted successfully"}
-
-# Create address book
-@router.post("/createaddressbook/", response_model=AddressBookResponse, status_code=status.HTTP_201_CREATED,
-             description="Create a new address book entry and return the created entry.")
-async def create_address_book_api(address: AddressBookCreate, db: Session = Depends(get_db)):
-    try:
-        # Pass address data to CRUD function
-        return create_address_book(db, address)
-    except IntegrityError as e:
-        if "UNIQUE constraint failed" in str(e.orig):
-            raise HTTPException(status_code=400, detail="Address with this identifier already exists")
-        raise HTTPException(status_code=500, detail="Database error occurred")
-
-# GET address by ID
-@router.get("/{address_id}/viewaddressbook/", response_model=AddressBookResponse, status_code=status.HTTP_200_OK)
-async def get_address_book_api(address_id: int, db: Session = Depends(get_db)):
-    db_address = get_address_book(db, address_id)
-    if db_address is None:
-        raise HTTPException(status_code=404, detail="Address not found")
-    return db_address    
-
-# GET all address books
-@router.get("/alladdressbooks", response_model=List[AddressBookResponse])
-def get_all_addresses_api(db: Session = Depends(get_db)):
-    addresses = db.query(AddressBook).all()
-    return addresses
-
-# UPDATE address by ID
-@router.put("/{address_id}/updateaddressbook", response_model=AddressBookResponse, status_code=status.HTTP_200_OK)
-async def update_address_book_api(address_id: int, address: AddressBookUpdate, db: Session = Depends(get_db)):
-    if not any(value is not None for value in address.dict().values()):
-        raise HTTPException(status_code=400, detail="No fields to update")
-
-    updated_address = update_address_book(db, address_id, address.dict(exclude_unset=True))
-    return updated_address
-
-# DELETE address by ID
-@router.delete("/{address_id}/deleteaddressbook", status_code=status.HTTP_200_OK)
-async def delete_address_book_api(address_id: int, db: Session = Depends(get_db)):
-    db_address = get_address_book(db, address_id)
-    if not db_address:
-        raise HTTPException(status_code=404, detail="Address not found")
-    delete_address_book(db, address_id)
-    return {"detail": f"Address (ID: {address_id}) deleted successfully"}

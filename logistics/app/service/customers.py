@@ -1,54 +1,34 @@
-from app.models.customers import Customer
-from app.models.bookings import Bookings
-from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
-from app.crud.customers import get_customer, create_customer, update_customer
-from app.utils import log_and_raise_exception, check_duplicate_email_or_mobile
-import logging
-from sqlalchemy.orm import Session
-
-# Configure logger
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+from app.models.customers import CustomerCategory, CustomerType
+from app.utils import check_duplicate_email_or_mobile, validate_entry_by_id
 
 def create_customer_service(db, customer_data: dict):
     try:
-        existing_customer = check_duplicate_email_or_mobile(db, Customer, customer_data['email'], customer_data['mobile'])
+        # Check for duplicate email or mobile
+        existing_customer = check_duplicate_email_or_mobile(db, customer_data['email'], customer_data['mobile'])
         if existing_customer:
-            details = []
-            if existing_customer.email == customer_data['email']:
-                details.append(f"Email {customer_data['email']} already exists.")
-            if existing_customer.mobile == customer_data['mobile']:
-                details.append(f"Mobile number {customer_data['mobile']} already exists.")
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=" ".join(details))
-        return create_customer(db, customer_data)
-    except IntegrityError as e:
-        db.rollback()
-        log_and_raise_exception(f"Error creating customer: {str(e)}", status.HTTP_400_BAD_REQUEST)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email or Mobile already exists.")
+        # Validate category_id and type_id
+        if 'category_id' not in customer_data or 'type_id' not in customer_data:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing category_id or type_id.")
+        validate_entry_by_id(customer_data['category_id'], db, CustomerCategory, 'id')
+        validate_entry_by_id(customer_data['type_id'], db, CustomerType, 'id')
+        # Now return customer data to be handled by CRUD or endpoints later
+        return customer_data
     except Exception as e:
-        db.rollback()
-        log_and_raise_exception(f"Error creating customer: {str(e)}", 500)
-
+        raise HTTPException(status_code=500, detail=f"Error creating customer: {str(e)}")
 
 def update_customer_service(db, customer_id: int, customer_data: dict):
     """
     Business logic for updating customer details.
     """
-    customer = get_customer(db, customer_id)
     try:
-        # Update each attribute of the customer
-        for key, value in customer_data.items():
-            setattr(customer, key, value)
-        
-        # Commit changes to the database
-        db.commit()
-        db.refresh(customer)
-        return customer
-    except IntegrityError as e:
-        # Rollback on error and raise HTTP Exception
-        db.rollback()
-        log_and_raise_exception(f"Error updating customer: {str(e)}", status.HTTP_400_BAD_REQUEST)
+        # Validate category_id and type_id if provided
+        if 'category_id' in customer_data:
+            validate_entry_by_id(customer_data['category_id'], db, CustomerCategory, 'id')
+        if 'type_id' in customer_data:
+            validate_entry_by_id(customer_data['type_id'], db, CustomerType, 'id')
+        # Return updated customer data for further CRUD operations or endpoint handling
+        return customer_data
     except Exception as e:
-        # Rollback on any other error
-        db.rollback()
-        log_and_raise_exception(f"Error updating customer with ID {customer_id}: {str(e)}", 500)
+        raise HTTPException(status_code=500, detail=f"Error updating customer with ID {customer_id}: {str(e)}")

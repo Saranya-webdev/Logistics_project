@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 class AddressBook(Base):
     __tablename__ = "address_books"
 
-    address_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    address_id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"))
     name = Column(String(255), nullable=False)
     address_line_1 = Column(String(255), nullable=False)
@@ -18,4 +18,5 @@ class AddressBook(Base):
     country = Column(String(100), nullable=False)
     mobile = Column(String(15))
     created_at = Column(DateTime, nullable=False, default=func.now())
-    
+
+    user = relationship("Users", back_populates="address_books")
