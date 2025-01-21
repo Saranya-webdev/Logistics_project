@@ -4,27 +4,27 @@ from typing import Optional
 
 
 # Address Book Models
-class AddressBookBase(BaseModel):
-    """
-    Pydantic model for representing an addressbook.
-    """
-    customer_id: Optional[int]
-    name: str = Field(..., max_length=255)
-    address_line_1: str = Field(..., max_length=255)
-    address_line_2: Optional[str] = Field(None, max_length=255)
-    city: str = Field(..., max_length=100)
-    state: str = Field(..., max_length=100)
-    postal_code: str = Field(..., max_length=20)
-    country: str = Field(..., max_length=100)
-    mobile: str = Field(..., pattern=r'^\+?\d{10,15}$') # Mobile number validation
+class AddressBase(BaseModel):
+    address_name: str
+    name: str
+    mobile: str
+    email_id: str
+    address: str
+    city: str
+    state: str
+    country: str
+    pincode: Optional[str] = None
+    company_name: Optional[str] = None
+    address_type: str
 
-class AddressBookCreate(AddressBookBase):
+class AddressBookCreate(AddressBase):
     """
     Pydantic model for receiving input data for creating an address book.
+    This can be used for AddressBook insertions.
     """
     pass
 
-class AddressBookResponse(AddressBookBase):
+class AddressBookResponse(AddressBase):
     """
     Pydantic model for representing the response data for an address book.
     """

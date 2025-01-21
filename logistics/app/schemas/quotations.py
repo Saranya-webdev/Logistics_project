@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional
-from app.models.bookings import PickupMethod, PickupStatus, PackageType
+from app.models.enums import PickupMethod, PickupStatus, PackageType
 
 # Quotation Models
 class QuotationItemBase(BaseModel):

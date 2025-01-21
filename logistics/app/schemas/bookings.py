@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime, date, time
 from typing import List, Optional
-from app.models.bookings import PickupMethod, PickupStatus, PackageType,RatingEnum
+from app.models.enums import PickupMethod, PickupStatus, PackageType,RatingEnum
 
 
 # Pydantic Models
@@ -12,9 +12,11 @@ class BookingItemBase(BaseModel):
     width: float
     package_type: PackageType
     cost: float
-    pickup_method: PickupMethod
+    pickup_method: PickupMethod = PickupMethod.user_address
     booking_status: PickupStatus = PickupStatus.pending
     rating: Optional[RatingEnum] = None
+
+    
 
 class BookingItemCreate(BookingItemBase):
     pass
@@ -22,7 +24,7 @@ class BookingItemCreate(BookingItemBase):
 class BookingItemDetailedResponse(BookingItemBase):
     booking_id: int
     item_id: int
-    pickup_method: PickupMethod = PickupMethod.user_address 
+    pickup_method: PickupMethod = PickupMethod.user_address
 
     class Config:
         from_attributes = True
@@ -55,6 +57,8 @@ class BookingBase(BaseModel):
     pickup_date: Optional[date] = None
     rating: Optional[RatingEnum] = None
 
+    
+
 class BookingCreate(BookingBase):
     booking_items: List[BookingItemCreate]
 
@@ -71,7 +75,7 @@ class BookingDetailedResponse(BookingBase):
 class BookingUpdate(BaseModel):
     customer_id: Optional[int] = None
     created_by: Optional[int] = None
-    pickup_method: Optional[PickupMethod] = None
+    pickup_method: PickupMethod = PickupMethod.user_address
     booking_status: Optional[PickupStatus] = None
     package_type: Optional[PackageType] = None
     name: Optional[str] = None

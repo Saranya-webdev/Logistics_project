@@ -1,141 +1,60 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, root_validator
 from typing import Optional, List
+from app.models.customers import CustomerCategory, CustomerType
 
-
-# Pydantic Schema for Customer Category
-class CustomerCategoryBase(BaseModel):
-    """
-    Pydantic model for representing a customer's category.
-    """
-    name: str
-
-    class Config:
-        from_attributes = True
-
-class CustomerCategoryCreate(CustomerCategoryBase):
-    pass
-
-class CustomerCategoryResponse(CustomerCategoryBase):
-    id: int
-
-    class Config:
-        from_attributes = True
-
-# Pydantic Schema for Customer Type
-class CustomerTypeBase(BaseModel):
-    name: str
-
-    class Config:
-        from_attributes = True
-
-class CustomerTypeCreate(CustomerTypeBase):
-    pass
-
-class CustomerTypeResponse(CustomerTypeBase):
-    id: int
-
-    class Config:
-        from_attributes = True
-
-# Pydantic Schema for Customer
-class CustomerBase(BaseModel):
+class CustomerCreate(BaseModel):
     customer_name: str
-    email: str
-    mobile: Optional[str]
-    company: str
-    address: str
-    city: str
-    state: str
-    pincode: Optional[int]
-    country: str
-    taxid: str
-    licensenumber: str
-    designation: str
-    is_active: bool
+    customer_email: str
+    customer_mobile: str
+    customer_address: str
+    customer_city: str
+    customer_state: str
+    customer_country: str
+    customer_pincode: Optional[str] = None
+    customer_geolocation: str
+    customer_type: CustomerType
+    customer_category: CustomerCategory
+    notes: Optional[str] = None
+    verification_status: str
+    # Add business-related fields for corporate customers
+    tax_id: Optional[str] = None
+    license_number: Optional[str] = None
+    designation: Optional[str] = None
+    company_name: Optional[str] = None
+
+
+    @root_validator(pre=True)
+    def check_business_fields(cls, values):
+        # Enforce that business fields are required if customer_type is 'business'
+        if values.get("customer_type") == CustomerType.corporate:
+            required_business_fields = ["tax_id", "license_number", "designation", "company_name"]
+            missing_fields = [field for field in required_business_fields if not values.get(field)]
+            if missing_fields:
+                raise ValueError(f"Missing business fields: {', '.join(missing_fields)}")
+        return values
 
     class Config:
         from_attributes = True
+        arbitrary_types_allowed = True
 
-class CustomerCreate(CustomerBase):
-    """
-    Pydantic model for receiving input data for creating a customer.
-    """
-    category_id: int
-    type_id: Optional[int]
 
-class CustomerResponse(CustomerBase):
-    customer_id: int
-    category: Optional[CustomerCategoryResponse] = None
-    customer_type: Optional[CustomerTypeResponse] = None
-
-    class Config:
-        from_attributes = True
-
-class CustomerListResponse(BaseModel):
+class CustomerResponse(BaseModel):
     customer_name: str
-    mobile: Optional[str]
-    email: str
-
-    class Config:
-        from_attributes = True    
-
-# Response model for detailed customer information
-class CustomerDetailedResponse(BaseModel):
-    customer_name: str
-    mobile: Optional[str]
-    email: str
-    address: str
-    city: str
-    state: str
-    country: str
-    pincode: Optional[int]
-
-    class Config:
-        from_attributes = True            
-
-class CustomerUpdate(CustomerBase):
-    category_id: Optional[int]
-    type_id: Optional[int]
+    customer_email: str
+    customer_mobile: str
+    customer_address: str
+    customer_city: str
+    customer_state: str
+    customer_country: str
+    customer_geolocation: str
+    customer_type: str
+    customer_category: str
+    verification_status: str  # Ensure this field is included
+    tax_id: Optional[str]  # Make sure these fields are Optional if not always present
+    license_number: Optional[str]
+    designation: Optional[str]
+    company_name: Optional[str]
 
     class Config:
         from_attributes = True
-
-
-# Response model for a booking list item
-class BookingListItem(BaseModel):
-    from_city: str
-    from_pincode: Optional[int]
-    to_city: str
-    to_pincode: Optional[int]
-    type: str
-    status: str
-    action: str
-
-    class Config:
-        from_attributes = True
-
-# Response model for customer's booking list
-class CustomerBookingListResponse(BaseModel):
-    customer_name: str
-    bookings: List[BookingListItem]
-
-    class Config:
-        from_attributes = True
-
-
-# Response model for detailed booking information
-class CustomerBookingDetailedResponse(BaseModel):
-    name: str
-    from_address: str
-    to_address: str
-    length: float
-    height: float
-    weight: float
-    width: float
-    package_type: str
-    cost: float
-    delivery_date: str
-    num_packages: int
-
-    class Config:
-        from_attributes = True        
+     
