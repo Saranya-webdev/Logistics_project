@@ -7,11 +7,12 @@ from app.models.bookings import Bookings
 
 
 class Quotations(Base):
-    __tablename__ = "quotations"
+    __tablename__ = "quotation"
+    __table_args__ = {'extend_existing': True}
 
-    quotation_id = Column(Integer, primary_key=True,autoincrement=True)
-    customer_id = Column(Integer, ForeignKey('customers.customer_id'))
-    created_by = Column(Integer, ForeignKey("customers.customer_id"))
+    quotation_id = Column(Integer, primary_key=True, autoincrement=True)
+    customer_id = Column(Integer, ForeignKey('customer.customer_id'))  # Correct reference
+    created_by = Column(Integer, ForeignKey("customer.customer_id"))  # Correct reference
     pickup_method = Column(Enum(PickupMethod), nullable=False, name='pickup_method')
     status = Column(Enum(PickupStatus), default='active', nullable=False, name='status')
     valid_until = Column(Date, nullable=False)
@@ -19,20 +20,26 @@ class Quotations(Base):
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     quotation_status = Column(Enum(PickupStatus), nullable=True)
 
-    # Relationships
-    quotation_items = relationship("QuotationItems", back_populates="quotation", uselist=True)
-    bookings = relationship('Bookings', back_populates='quotation', foreign_keys=[Bookings.quotation_id])
+    # Correct relationships with foreign_keys argument
+    quotation_items = relationship("QuotationItems", back_populates="quotation", cascade="all, delete-orphan")
+    bookings = relationship('Bookings', back_populates='quotation', foreign_keys=[Bookings.quotation_id])  # Specify foreign key
 
-    # Specify which foreign key to use in the relationship
     customer = relationship('Customer', back_populates='quotations', foreign_keys=[customer_id])
+
+    class Config:
+        orm_mode = True
+
+
+
 
 
 
 class QuotationItems(Base):
     __tablename__ = "quotation_items"
+    __table_args__ = {'extend_existing': True}
 
     item_id = Column(Integer, primary_key=True,  autoincrement=True)
-    quotation_id = Column(Integer, ForeignKey("quotations.quotation_id"), nullable=False)
+    quotation_id = Column(Integer, ForeignKey("quotation.quotation_id"), nullable=False)  # Correct reference
     weight = Column(DECIMAL(10, 2), nullable=False)
     length = Column(DECIMAL(10, 2), nullable=False)
     width = Column(DECIMAL(10, 2), nullable=False)
@@ -40,4 +47,8 @@ class QuotationItems(Base):
     package_type = Column(Enum(PackageType), nullable=False, name='package_type')
     cost = Column(DECIMAL(10, 2), nullable=False)
 
+    # Relationship back to Quotations
     quotation = relationship("Quotations", back_populates="quotation_items")
+
+    class Config:
+        orm_mode = True

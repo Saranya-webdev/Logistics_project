@@ -6,17 +6,36 @@ from sqlalchemy.orm import relationship
 # Address Book Model
 class AddressBook(Base):
     __tablename__ = "address_books"
+    __table_args__ = {'extend_existing': True}
 
     address_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"))
+    address_name = Column(String(255), nullable=False)
     name = Column(String(255), nullable=False)
-    address_line_1 = Column(String(255), nullable=False)
-    address_line_2 = Column(String(255))
+    mobile =  Column(String(15))
+    email_id = Column(String(255), nullable=False, unique=True)
+    address = Column(String(255), nullable=False)
     city = Column(String(100), nullable=False)
     state = Column(String(100), nullable=False)
-    postal_code = Column(String(20), nullable=False)
     country = Column(String(100), nullable=False)
-    mobile = Column(String(15))
+    pincode = Column(String(20), nullable=False)
+    company_name = Column(String(255), nullable=False)
+    address_type = Column(String(255), nullable=False)
+    customer_id = Column(Integer, ForeignKey('customer.customer_id'), nullable=False)
+    
     created_at = Column(DateTime, nullable=False, default=func.now())
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    # created_by = Column(Integer, ForeignKey("user.user_id"))
+    # updated_by = Column(Integer, ForeignKey("user.user_id"))
 
-    user = relationship("Users", back_populates="address_books")
+    customer = relationship(
+    "Customer", 
+    back_populates="address_books", 
+    primaryjoin="AddressBook.customer_id == Customer.customer_id"
+)
+
+
+
+    class Config:
+        orm_mode = True
+
+    

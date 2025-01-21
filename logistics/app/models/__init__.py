@@ -1,4 +1,3 @@
-from .users import Users
 from .customers import Customer
 from .bookings import Bookings
 from .quotations import Quotations

@@ -1,65 +1,55 @@
-from sqlalchemy import Integer, String, Column, DateTime, ForeignKey, Enum, DECIMAL, Date, Time
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import Integer, String, Column, DateTime, ForeignKey, Date, Time, DECIMAL
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
 from app.models.base import Base
-from app.models.enums import PickupMethod, PickupStatus, PackageType,PaymentStatus,RatingEnum
+from sqlalchemy.orm import relationship
+from app.models.enums import PickupStatus, PackageType, PaymentStatus
 
 # Booking Model
 class Bookings(Base):
-    __tablename__ = 'bookings'
+    __tablename__ = 'booking'
+    __table_args__ = {'extend_existing': True}
 
     booking_id = Column(Integer, primary_key=True, autoincrement=True)
-    customer_id = Column(Integer, ForeignKey("customers.customer_id"), nullable=False)
-    created_by = Column(Integer, ForeignKey("users.user_id"))
-    name = Column(String(255), nullable=False)
-    phone_number = Column(String(255), nullable=False)
-    email = Column(String(255), nullable=False)
-    from_address = Column(String(255), nullable=False)
-    city = Column(String(255), nullable=False)
-    state = Column(String(255), nullable=False)
-    country = Column(String(255), nullable=False)
-    pincode = Column(String(255), nullable=True)
-    to_name = Column(String(255), nullable=False)
-    to_phone_number = Column(String(255), nullable=False)
-    to_email = Column(String(255), nullable=False)
-    to_address = Column(String(255), nullable=False)
-    to_city = Column(String(255), nullable=False)
-    to_state = Column(String(255), nullable=False)
-    to_country = Column(String(255), nullable=False)
-    to_pincode = Column(String(255), nullable=True)
-    created_at = Column(DateTime, nullable=False, default=func.now())
-    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    estimated_delivery_date = Column(DateTime, nullable=True)
-    estimated_delivery_cost = Column(DECIMAL(10, 2), nullable=False)
+    from_address_id = Column(Integer)
+    to_address_id = Column(Integer)
+    booking_date = Column(DateTime, nullable=False, default=func.now())
     pickup_time = Column(Time, nullable=True)
     pickup_date = Column(Date, nullable=True)
-    quotation_id = Column(Integer, ForeignKey('quotations.quotation_id'))
-    package_count = Column(Integer, default=0)
-    pickup_method = Column(Enum(PickupMethod)) 
-    booking_status = Column(Enum(PickupStatus), nullable=True)
-    payment_status = Column(Enum(PaymentStatus), default=PaymentStatus.picked, nullable=False, name='payment_status')
-
+    drop_time = Column(Time, nullable=True)
+    drop_location = Column(String(255))
+    booking_by = Column(Integer, ForeignKey("customer.customer_id"))
+    cost = Column(DECIMAL(10, 2), nullable=False)
+    booking_status = Column(SQLEnum(PickupStatus, name="pickup_status_enum"), nullable=True)
+    payment_status = Column(SQLEnum(PaymentStatus, name="payment_status_enum"), 
+                            default=PaymentStatus.picked, nullable=False)
+    quotation_id = Column(Integer, ForeignKey('quotation.quotation_id'))
+    customer_id = Column(Integer, ForeignKey('customer.customer_id'))
     
-
-    # Relationships
-    quotation = relationship('Quotations', back_populates='bookings', foreign_keys=[quotation_id])
     customer = relationship("Customer", back_populates="bookings", foreign_keys=[customer_id])
     booking_items = relationship("BookingItem", back_populates="booking")
+    customer_payments = relationship("CustomerPayments", back_populates="booking")
+    quotation = relationship("Quotations", back_populates="bookings", foreign_keys=[quotation_id])
 
+    class Config:
+        orm_mode = True
 
 # Booking Item Model
 class BookingItem(Base):
     __tablename__ = 'booking_items'
+    __table_args__ = {'extend_existing': True}
 
-    item_id = Column(Integer, primary_key=True,  autoincrement=True)
-    booking_id = Column(Integer, ForeignKey("bookings.booking_id"), nullable=False)
-    weight = Column(DECIMAL(10, 2), nullable=False)
-    length = Column(DECIMAL(10, 2), nullable=False)
-    width = Column(DECIMAL(10, 2), nullable=False)
-    height = Column(DECIMAL(10, 2), nullable=False)
-    package_type = Column(Enum(PackageType), nullable=False, name='package_type')
-    cost = Column(DECIMAL(10, 2), nullable=False)
-    rating = Column(Enum(RatingEnum), nullable=True)  # Rating can be stored here
-
+    item_id = Column(Integer, primary_key=True, autoincrement=True)
+    item_length = Column(DECIMAL(10, 2), nullable=False)
+    item_width = Column(DECIMAL(10, 2), nullable=False)
+    item_height = Column(DECIMAL(10, 2), nullable=False)
+    item_weight = Column(DECIMAL(10, 2), nullable=False)
+    volumetric_weight = Column(DECIMAL(10, 2), nullable=False)
+    booking_id = Column(Integer, ForeignKey("booking.booking_id"), nullable=False)
+    package_type = Column(SQLEnum(PackageType, name="package_type_enum"), nullable=False)
+    package_cost = Column(DECIMAL(10, 2), nullable=False)
+    
     booking = relationship("Bookings", back_populates="booking_items")
 
+    class Config:
+        orm_mode = True

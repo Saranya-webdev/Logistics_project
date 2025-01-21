@@ -6,11 +6,11 @@ Create Date: 2024-12-29 17:19:08.498831
 
 """
 from typing import Sequence, Union
-
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import mysql
-from sqlalchemy import Integer, String
+from sqlalchemy import Integer, String, DateTime, Boolean
+from sqlalchemy.sql import func
 
 # revision identifiers, used by Alembic.
 revision: str = 'ae906cabb074'
@@ -18,72 +18,55 @@ down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-
 def upgrade() -> None:
     # Alter the 'customer' table columns first
-    op.alter_column('customer', 'address',
-                    existing_type=mysql.VARCHAR(length=250),
+    op.alter_column('customer', 'customer_address',
+                    existing_type=mysql.VARCHAR(length=255),
                     type_=sa.Text(),
                     existing_nullable=True)
-    op.alter_column('customer', 'taxid',
-                    existing_type=mysql.INTEGER(),
-                    type_=sa.String(length=100),
+    op.alter_column('customer', 'customer_mobile',
+                    existing_type=mysql.VARCHAR(length=15),
+                    type_=sa.String(15),
                     existing_nullable=True)
-    op.alter_column('customer', 'licensenumber',
-                    type_=String(100),
-                    existing_type=Integer)
-    op.alter_column('customer', 'created_at',
-                    existing_type=mysql.VARCHAR(length=100),
-                    type_=sa.DateTime(),
+    op.alter_column('customer', 'customer_email',
+                    existing_type=mysql.VARCHAR(length=255),
+                    type_=sa.String(255),
+                    existing_nullable=False)
+    op.alter_column('customer', 'customer_city',
+                    existing_type=mysql.VARCHAR(length=255),
+                    type_=sa.String(255),
+                    existing_nullable=False)
+    op.alter_column('customer', 'customer_state',
+                    existing_type=mysql.VARCHAR(length=255),
+                    type_=sa.String(255),
+                    existing_nullable=False)
+    op.alter_column('customer', 'customer_country',
+                    existing_type=mysql.VARCHAR(length=255),
+                    type_=sa.String(255),
+                    existing_nullable=False)
+    op.alter_column('customer', 'customer_pincode',
+                    existing_type=mysql.VARCHAR(length=255),
+                    type_=sa.String(255),
                     existing_nullable=True)
-    op.alter_column('customer', 'updated_at',
-                    existing_type=mysql.VARCHAR(length=250),
-                    type_=sa.DateTime(),
-                    existing_nullable=True)
+    op.alter_column('customer', 'customer_geolocation',
+                    existing_type=mysql.VARCHAR(length=255),
+                    type_=sa.String(255),
+                    existing_nullable=False)
 
     # Add the 'type_id' column and create foreign key
-    op.add_column('customers', sa.Column('type_id', sa.Integer(), nullable=False))
-    op.create_foreign_key('fk_customer_type', 'customers', 'customer_types', ['type_id'], ['id'])
+    op.add_column('customer', sa.Column('type_id', sa.Integer(), nullable=False))
+    op.create_foreign_key('fk_customer_type', 'customer', 'customer_types', ['type_id'], ['id'])
 
-    # Drop the old 'type' column
-    op.drop_column('customers', 'type')
+    # Alter 'customer_type' and 'customer_category' columns with Enum
+    op.alter_column('customer', 'customer_type', type_=sa.Enum('individual', 'corporate', name="customer_type_enum"), existing_nullable=True)
+    op.alter_column('customer', 'customer_category', type_=sa.Enum('tier_1', 'tier_2', 'tier_3', name="customer_category_enum"), existing_nullable=True)
 
-    # Alter additional columns in the 'customers' table
-    op.alter_column('customers', 'address',
-                    existing_type=mysql.VARCHAR(length=250),
-                    type_=sa.Text(),
-                    existing_nullable=True)
-    op.alter_column('customers', 'taxid',
-                    existing_type=mysql.INTEGER(),
-                    type_=sa.String(length=100),
-                    existing_nullable=True)
-    op.alter_column('customers', 'licensenumber',
-                    type_=String(100),
-                    existing_type=Integer)
-    op.alter_column('customers', 'created_at',
-                    existing_type=mysql.VARCHAR(length=100),
-                    type_=sa.DateTime(),
-                    existing_nullable=True)
-    op.alter_column('customers', 'updated_at',
-                    existing_type=mysql.VARCHAR(length=250),
-                    type_=sa.DateTime(),
-                    existing_nullable=True)
 
-    # Add new columns (state, pincode, country)
-    op.add_column('customers', sa.Column('state', sa.String(length=250), nullable=True))
-    op.add_column('customers', sa.Column('pincode', sa.Integer(), nullable=True))
-    op.add_column('customers', sa.Column('country', sa.String(length=250), nullable=True))
-
-    # Alter mobile column length
-    op.alter_column('customers', 'mobile',
-                    existing_type=sa.Integer,
-                    type_=sa.String(15),  # Adjust length as per your requirement
-                    nullable=True)
 
     # Drop old columns (State, Pincode, Country)
-    op.drop_column('customers', 'State')  # Verify column names (case-sensitive)
-    op.drop_column('customers', 'Pincode')
-    op.drop_column('customers', 'Country')
+    op.drop_column('customer', 'customer_state')
+    op.drop_column('customer', 'customer_pincode')
+    op.drop_column('customer', 'customer_country')
 
     # Drop tables (users and posts) if required
     op.drop_index('ix_posts_id', table_name='posts')
@@ -93,36 +76,25 @@ def upgrade() -> None:
     op.drop_table('users')
 
 def downgrade() -> None:
-    # Revert changes for 'customers'
-    op.add_column('customers', sa.Column('State', mysql.VARCHAR(length=250), nullable=True))
-    op.add_column('customers', sa.Column('Pincode', mysql.VARCHAR(length=100), nullable=True))
-    op.add_column('customers', sa.Column('Country', mysql.VARCHAR(length=250), nullable=True))
+    # Revert changes for 'customer'
+    op.add_column('customer', sa.Column('State', mysql.VARCHAR(length=250), nullable=True))
+    op.add_column('customer', sa.Column('Pincode', mysql.VARCHAR(length=100), nullable=True))
+    op.add_column('customer', sa.Column('Country', mysql.VARCHAR(length=250), nullable=True))
 
     # Revert column type changes
-    op.alter_column('customers', 'updated_at',
-                    existing_type=sa.DateTime(),
-                    type_=mysql.VARCHAR(length=250),
+    op.alter_column('customer', 'updated_at',
+                existing_type=sa.String(255),
+                type_=sa.DateTime(),
+                existing_nullable=True)
+    op.alter_column('customer', 'created_at',
+                existing_type=sa.String(255),
+                type_=sa.DateTime(),
+                existing_nullable=False)
+
+    op.alter_column('customer', 'customer_mobile',
+                    existing_type=sa.String(15),
+                    type_=mysql.VARCHAR(length=15),
                     existing_nullable=True)
-    op.alter_column('customers', 'created_at',
-                    existing_type=sa.DateTime(),
-                    type_=mysql.VARCHAR(length=100),
-                    existing_nullable=True)
-    op.alter_column('customers', 'licensenumber',
-                    existing_type=sa.String(length=100),
-                    type_=mysql.INTEGER(),
-                    existing_nullable=True)
-    op.alter_column('customers', 'taxid',
-                    existing_type=sa.String(length=100),
-                    type_=mysql.INTEGER(),
-                    existing_nullable=True)
-    op.alter_column('customers', 'address',
-                    existing_type=sa.Text(),
-                    type_=mysql.VARCHAR(length=250),
-                    existing_nullable=True)
-    op.alter_column('customers', 'mobile',
-                    existing_type=sa.String(length=15),
-                    type_=sa.Integer(),
-                    nullable=True)
 
     # Recreate tables (users and posts)
     op.create_table('users',

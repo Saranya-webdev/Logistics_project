@@ -1,6 +1,16 @@
 # app/models/enums.py
 import enum
 
+class CustomerType(str, enum.Enum):
+    individual = "individual"
+    corporate = "corporate"
+
+class CustomerCategory(str, enum.Enum):
+    tier_1 = 'tier_1'
+    tier_2 = 'tier_2'
+    tier_3 = 'tier_3'
+
+
 class PickupMethod(str, enum.Enum):
     user_address = 'user_address'
     drop_point = 'drop_point'
@@ -22,10 +32,9 @@ class PaymentStatus(str, enum.Enum):
     transit = "In Transit"
     delivered = "Delivered"
 
-class RatingEnum(int, enum.Enum):
-    one = 1
-    two = 2
-    three = 3
-    four = 4
-    five = 5    
-  
+class RatingEnum(str, enum.Enum):
+    One = "1"
+    Two = "2"
+    Three = "3"
+    Four = "4"
+    Five = "5"
