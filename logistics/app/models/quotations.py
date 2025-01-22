@@ -11,10 +11,10 @@ class Quotations(Base):
     __table_args__ = {'extend_existing': True}
 
     quotation_id = Column(Integer, primary_key=True, autoincrement=True)
-    customer_id = Column(Integer, ForeignKey('customer.customer_id'))  # Correct reference
-    created_by = Column(Integer, ForeignKey("customer.customer_id"))  # Correct reference
+    customer_id = Column(Integer, ForeignKey('customer.customer_id'))  # Reference to Customer
+    created_by = Column(Integer, ForeignKey("customer.customer_id"))  # Reference to Customer (could be the creator)
     pickup_method = Column(Enum(PickupMethod), nullable=False, name='pickup_method')
-    status = Column(Enum(PickupStatus), default='active', nullable=False, name='status')
+    status = Column(Enum(PickupStatus), default=PickupStatus.pending, nullable=False, name='status')  # Default value for 'status'
     valid_until = Column(Date, nullable=False)
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
@@ -30,15 +30,11 @@ class Quotations(Base):
         orm_mode = True
 
 
-
-
-
-
 class QuotationItems(Base):
     __tablename__ = "quotation_items"
     __table_args__ = {'extend_existing': True}
 
-    item_id = Column(Integer, primary_key=True,  autoincrement=True)
+    item_id = Column(Integer, primary_key=True, autoincrement=True)
     quotation_id = Column(Integer, ForeignKey("quotation.quotation_id"), nullable=False)  # Correct reference
     weight = Column(DECIMAL(10, 2), nullable=False)
     length = Column(DECIMAL(10, 2), nullable=False)

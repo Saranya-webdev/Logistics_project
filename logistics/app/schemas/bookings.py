@@ -4,6 +4,20 @@ from typing import List, Optional
 from app.models.enums import PickupMethod, PickupStatus, PackageType,RatingEnum
 
 
+
+class BookingSummary(BaseModel):
+    booking_id: int
+    from_city: str
+    from_pincode: str
+    to_city: str
+    to_pincode: str
+    status: str
+    action: str
+
+    class Config:
+        from_attributes = True
+            
+
 # Pydantic Models
 class BookingItemBase(BaseModel):
     length: float

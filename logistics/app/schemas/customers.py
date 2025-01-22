@@ -1,6 +1,22 @@
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel, root_validator, Field
 from typing import Optional, List
 from app.models.customers import CustomerCategory, CustomerType
+from app.schemas.bookings import BookingSummary
+
+class Customer(BaseModel):
+    customer_name: str
+    customer_email: str
+    customer_mobile: str
+    customer_address: str
+    customer_city: str
+    customer_state: str
+    customer_country: str
+    customer_pincode: Optional[str] = None
+    customer_geolocation: str
+    customer_type: str
+    customer_category: str
+    verification_status: str
+    active_flag: int
 
 class CustomerCreate(BaseModel):
     customer_name: str
@@ -16,21 +32,28 @@ class CustomerCreate(BaseModel):
     customer_category: CustomerCategory
     notes: Optional[str] = None
     verification_status: str
-    # Add business-related fields for corporate customers
+
+    # Business-related fields for corporate customers
     tax_id: Optional[str] = None
     license_number: Optional[str] = None
     designation: Optional[str] = None
     company_name: Optional[str] = None
 
-
     @root_validator(pre=True)
     def check_business_fields(cls, values):
-        # Enforce that business fields are required if customer_type is 'business'
-        if values.get("customer_type") == CustomerType.corporate:
-            required_business_fields = ["tax_id", "license_number", "designation", "company_name"]
-            missing_fields = [field for field in required_business_fields if not values.get(field)]
-            if missing_fields:
-                raise ValueError(f"Missing business fields: {', '.join(missing_fields)}")
+        customer_type = values.get("customer_type")
+        required_fields = []  # Initialize it outside the if block
+
+        if customer_type == CustomerType.corporate:
+            required_fields = ["tax_id", "license_number", "designation", "company_name"]
+            missing = [field for field in required_fields if not values.get(field)]
+            if missing:
+                raise ValueError(f"Missing required fields for corporate customer: {', '.join(missing)}")
+        elif customer_type == CustomerType.individual:
+            # Set business-related fields to None for individual customers
+            for field in ["tax_id", "license_number", "designation", "company_name"]:
+                values[field] = None
+
         return values
 
     class Config:
@@ -38,7 +61,33 @@ class CustomerCreate(BaseModel):
         arbitrary_types_allowed = True
 
 
-class CustomerResponse(BaseModel):
+class CustomerUpdate(BaseModel):
+    customer_name: Optional[str] = None
+    customer_email: Optional[str] = None
+    customer_mobile: Optional[str] = None
+    customer_address: Optional[str] = None
+    customer_city: Optional[str] = None
+    customer_state: Optional[str] = None
+    customer_country: Optional[str] = None
+    customer_pincode: Optional[str] = None
+    customer_geolocation: Optional[str] = None
+    customer_type: Optional[CustomerType] = None
+    customer_category: Optional[CustomerCategory] = None
+    notes: Optional[str] = None
+    verification_status: Optional[str] = None
+
+    # Business-related fields
+    tax_id: Optional[str] = None
+    license_number: Optional[str] = None
+    designation: Optional[str] = None
+    company_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+        arbitrary_types_allowed = True
+
+class CustomerUpdateResponse(BaseModel):
+    customer_id: int
     customer_name: str
     customer_email: str
     customer_mobile: str
@@ -46,15 +95,56 @@ class CustomerResponse(BaseModel):
     customer_city: str
     customer_state: str
     customer_country: str
+    customer_pincode: Optional[str] = None
     customer_geolocation: str
-    customer_type: str
-    customer_category: str
-    verification_status: str  # Ensure this field is included
-    tax_id: Optional[str]  # Make sure these fields are Optional if not always present
-    license_number: Optional[str]
-    designation: Optional[str]
-    company_name: Optional[str]
+    customer_type: CustomerType
+    customer_category: CustomerCategory
+    verification_status: str
+    active_flag: Optional[int] = None       
+
+
+class CustomerResponse(BaseModel):
+    customer_id: int
+    customer_name: str
+    customer_email: str
+    customer_mobile: str
+    customer_address: str
+    customer_city: str
+    customer_state: str
+    customer_country: str
+    customer_pincode: Optional[str] = None
+    customer_geolocation: str
+    customer_type: CustomerType
+    customer_category: CustomerCategory
+    notes: Optional[str] = None
+    verification_status: str
+    active_flag: int
+    # Business-related fields
+    business_id: Optional[int] = None
+    tax_id: Optional[str] = None
+    license_number: Optional[str] = None
+    designation: Optional[str] = None
+    company_name: Optional[str] = None
 
     class Config:
         from_attributes = True
-     
+
+
+class CustomerBookingListResponse(BaseModel):
+    customer_id: int
+    customer_name: str
+    mobile: str
+    email: str
+    address: str
+    city: str
+    state: str
+    country: str
+    pincode: Optional[str]
+
+    # Business-related fields
+    business_id: Optional[int] = None
+    tax_id: Optional[str] = None
+    license_number: Optional[str] = None
+    designation: Optional[str] = None
+    company_name: Optional[str] = None
+    bookings: List[BookingSummary]
