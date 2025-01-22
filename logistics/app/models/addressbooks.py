@@ -12,7 +12,7 @@ class AddressBook(Base):
     address_name = Column(String(255), nullable=False)
     name = Column(String(255), nullable=False)
     mobile =  Column(String(15))
-    email_id = Column(String(255), nullable=False, unique=True)
+    email_id = Column(String(255), nullable=False)  # Removed unique=True to allow multiple addresses with same email
     address = Column(String(255), nullable=False)
     city = Column(String(100), nullable=False)
     state = Column(String(100), nullable=False)
@@ -27,15 +27,12 @@ class AddressBook(Base):
     # created_by = Column(Integer, ForeignKey("user.user_id"))
     # updated_by = Column(Integer, ForeignKey("user.user_id"))
 
+    # Relationship back to Customer
     customer = relationship(
-    "Customer", 
-    back_populates="address_books", 
-    primaryjoin="AddressBook.customer_id == Customer.customer_id"
-)
-
-
+        "Customer", 
+        back_populates="address_books", 
+        primaryjoin="AddressBook.customer_id == Customer.customer_id"
+    )
 
     class Config:
         orm_mode = True
-
-    

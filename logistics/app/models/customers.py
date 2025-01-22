@@ -26,26 +26,36 @@ class Customer(Base):
     customer_geolocation = Column(String(255), nullable=False)
 
     customer_type = Column(
-        Enum(CustomerType, name="customer_type_enum"), nullable=True
+        Enum(CustomerType, name="customer_type_enum"), nullable=False
     )
 
     customer_category = Column(
-        Enum(CustomerCategory, name="customer_category_enum"), nullable=True
+        Enum(CustomerCategory, name="customer_category_enum"), nullable=False
     )
 
-    notes = Column(String(255))
-    verification_status = Column(String(255))
+    notes = Column(String(255), nullable=True)
+    verification_status = Column(String(255), nullable=False, default="none")
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    is_active = Column(Boolean, default=True, comment="Indicates if the customer is active or not")
+    active_flag = Column(Integer, default=1)
+    deleted = Column(Boolean, default=False)
+    deleted_at = Column(DateTime, nullable=True)
 
     bookings = relationship('Bookings', back_populates='customer', foreign_keys=[Bookings.customer_id], cascade="all, delete-orphan")
     address_books = relationship("AddressBook", back_populates="customer", cascade="all, delete-orphan")
     quotations = relationship("Quotations", back_populates="customer", foreign_keys=[Quotations.customer_id], cascade="all, delete-orphan")
 
+    # Added relationship to customer_business
+    customer_business = relationship("CustomerBusiness", back_populates="customer", uselist=False, cascade="all, delete-orphan")
+    # Added relationship to customer_credential
+    customer_credentials = relationship("CustomerCredential", back_populates="customer", uselist=False, cascade="all, delete-orphan")
+    # Added relationship to customer_margin
+    customer_margins = relationship("CustomerMargin", back_populates="customer", uselist=False, cascade="all, delete-orphan")
+    # Added relationship to customer_payments
+    customer_payments = relationship("CustomerPayments", back_populates="customer", cascade="all, delete-orphan")
+
     class Config:
         orm_mode = True
-
 
 
 class CustomerBusiness(Base):
@@ -60,12 +70,13 @@ class CustomerBusiness(Base):
     customer_id = Column(Integer, ForeignKey('customer.customer_id'))
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    # created_by = Column(Integer, ForeignKey("user.user_id"))
-    # updated_by = Column(Integer, ForeignKey("user.user_id"))
     is_active = Column(Boolean, default=True, comment="Indicates if the customer is active or not")
+
+    customer = relationship("Customer", back_populates="customer_business")
 
     class Config:
         orm_mode = True
+
 
     
 class CustomerCredential(Base):
@@ -75,11 +86,12 @@ class CustomerCredential(Base):
     customer_credential_id = Column(Integer, primary_key=True)
     email_id = Column(String(255), nullable=False, unique=True)
     password = Column(String(255), nullable=False)
+    customer_id = Column(Integer, ForeignKey('customer.customer_id'))  # Added customer_id field
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    # created_by = Column(Integer, ForeignKey("user.user_id"))
-    # updated_by = Column(Integer, ForeignKey("user.user_id"))
     is_active = Column(Boolean, default=True, comment="Indicates if the customer is active or not")
+
+    customer = relationship("Customer", back_populates="customer_credentials")
 
     class Config:
         orm_mode = True
@@ -91,11 +103,12 @@ class CustomerMargin(Base):
     customer_margin_id = Column(Integer, primary_key=True)
     customer_type = Column(Enum(CustomerType, name="customer_type_enum"), nullable=True)
     cost = Column(DECIMAL(10, 2), nullable=False)
+    customer_id = Column(Integer, ForeignKey('customer.customer_id'))  # Added customer_id field
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    # created_by = Column(Integer, ForeignKey("user.user_id"))
-    # updated_by = Column(Integer, ForeignKey("user.user_id"))
     is_active = Column(Boolean, default=True, comment="Indicates if the customer is active or not")
+
+    customer = relationship("Customer", back_populates="customer_margins")
 
     class Config:
         orm_mode = True
@@ -108,16 +121,14 @@ class CustomerPayments(Base):
     customer_payment_id = Column(Integer, primary_key=True)
     amount = Column(DECIMAL(10, 2), nullable=False)
     payment_mode = Column(String(255), nullable=False)
-    booking_id = Column(Integer, ForeignKey("booking.booking_id"), nullable=False)  # Correct foreign key reference
+    booking_id = Column(Integer, ForeignKey("booking.booking_id"), nullable=False)
+    customer_id = Column(Integer, ForeignKey('customer.customer_id'))  # Added customer_id field
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    # created_by = Column(Integer, ForeignKey("user.user_id"))
-    # updated_by = Column(Integer, ForeignKey("user.user_id"))
     is_active = Column(Boolean, default=True, comment="Indicates if the customer is active or not")
 
-
+    customer = relationship("Customer", back_populates="customer_payments")
     booking = relationship("Bookings", back_populates="customer_payments")
 
     class Config:
         orm_mode = True
-    
