@@ -2,7 +2,7 @@ import logging
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.models.customers import Customer
-from app.models.enums import CustomerCategory, CustomerType
+from app.models.enums import Category, Type
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -52,12 +52,12 @@ def populate_dynamic_entries(db: Session, model, enum_list, field_name: str):
         try:
             # Handle enums dynamically based on the field name
             if field_name == 'customer_category':
-                category_enum = getattr(CustomerCategory, enum_value_correct, None)
+                category_enum = getattr(Category, enum_value_correct, None)
                 if category_enum is None:
                     raise ValueError(f"Invalid CustomerCategory value: {enum_value_correct}")
             elif field_name == 'customer_type':
                 # Get the actual enum member from CustomerType
-                customer_type_enum = getattr(CustomerType, enum_value_correct, None)
+                customer_type_enum = getattr(Type, enum_value_correct, None)
                 if customer_type_enum is None:
                     raise ValueError(f"Invalid value {enum_value_correct} for customer_type enum")
             else:
@@ -80,14 +80,14 @@ def populate_dynamic_entries(db: Session, model, enum_list, field_name: str):
                 "customer_country": "Dummy Country",
                 "customer_pincode": "000000",
                 "customer_geolocation": "0.0000° N, 0.0000° W",
-                "customer_type": customer_type_enum if field_name == 'customer_type' else getattr(CustomerType, "individual"),
-                "customer_category": category_enum if field_name == 'customer_category' else CustomerCategory.tier_1,
+                "customer_type": customer_type_enum if field_name == 'customer_type' else getattr(Type, "individual"),
+                "customer_category": category_enum if field_name == 'customer_category' else Category.tier_1,
                 "verification_status": "Verified",
                 "is_active": True,
             }
 
             # Add tax_id handling for corporate customers (if applicable)
-            if customer_data["customer_type"] == CustomerType.corporate:
+            if customer_data["customer_type"] == Type.corporate:
                 customer_data["tax_id"] = "123-456-789"  # Example tax_id, adjust based on actual logic
 
             # Check if an entry with the same enum value already exists

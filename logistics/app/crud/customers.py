@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from app.models.customers import Customer, CustomerCategory, CustomerType, CustomerBusiness
+from app.models.customers import Customer, Category, Type, CustomerBusiness
 from app.models.bookings import Bookings
 from app.schemas.customers import CustomerUpdateResponse
 from app.utils import log_and_raise_exception, populate_dynamic_entries, check_existing_customer
@@ -59,6 +59,12 @@ def get_customer_by_id(db: Session, customer_id: int) -> Customer:
 def get_customer(db: Session, customer_id: int):
     return db.query(Customer).filter(Customer.customer_id == customer_id).first()
 
+def fetch_all_customers_with_bookings(db: Session) -> list:
+    """
+    Wrapper function to call the service function that retrieves all customers with their booking list summaries.
+    """
+    return get_all_customers_with_booking_list(db)
+
 
 def get_customers_and_bookings(db: Session, customer_id: int):
     """Retrieve customer and their bookings based on customer_id."""
@@ -110,12 +116,12 @@ def update_customer(db: Session, customer_id: int, customer_data: dict):
     raise HTTPException(status_code=404, detail="Customer not found")
 
 
-def update_customer_status(db: Session, customer: Customer, active_flag: int, notes: Optional[str] = None) -> None:
-    """Update customer's active status and notes."""
+def update_customer_status(db: Session, customer: Customer, active_flag: int, remarks: Optional[str] = None) -> None:
+    """Update customer's active status and remarks."""
     try:
         customer.active = active_flag
-        if notes is not None:
-            customer.notes = notes
+        if remarks is not None:
+            customer.remarks = remarks
         db.commit()
     except Exception as e:
         db.rollback()
@@ -151,16 +157,16 @@ def soft_delete_customer(db: Session, customer_id: int):
     return customer
 
 
-def suspend_or_active_customer_crud(db: Session, customer_email: str, active_flag: int, notes: str):
+def suspend_or_active_customer_crud(db: Session, customer_email: str, active_flag: int, remarks: str):
     """Suspend or activate customer."""
-    updated_customer = suspend_or_activate_customer(db, customer_email, active_flag, notes)
+    updated_customer = suspend_or_activate_customer(db, customer_email, active_flag, remarks)
     return updated_customer
 
 
 # Additional functions for populating categories and types
 def populate_categories(db: Session):
     """Populate customer categories."""
-    categories = [CustomerCategory.tier_1, CustomerCategory.tier_2, CustomerCategory.tier_3]
+    categories = [Category.tier_1, Category.tier_2, Category.tier_3]
     try:
         populate_dynamic_entries(db, Customer, categories, 'customer_category')
         log_success("Customer categories populated successfully")
@@ -171,7 +177,7 @@ def populate_categories(db: Session):
 
 def populate_customer_types(db: Session):
     """Populate customer types."""
-    types = [CustomerType.individual, CustomerType.corporate]
+    types = [Type.individual, Type.corporate]
     try:
         populate_dynamic_entries(db, Customer, types, 'customer_type')
         log_success("Customer types populated successfully")

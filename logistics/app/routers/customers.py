@@ -5,7 +5,7 @@ from app.models.customers import Customer, CustomerBusiness
 from app.databases.mysqldb import get_db
 import logging
 from app.service.customers import create_customer_service, get_customer_profile
-from app.crud.customers import update_customer, get_customers_and_bookings, soft_delete_customer, get_customer, verify_customer_in_crud, suspend_or_active_customer_crud
+from app.crud.customers import update_customer, get_customers_and_bookings, soft_delete_customer, get_customer, verify_customer_in_crud, suspend_or_active_customer_crud, fetch_all_customers_with_bookings
 
 router = APIRouter() 
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-@router.post("/customercreate/", response_model=CustomerResponse)
+@router.post("/createcustomer/", response_model=CustomerResponse)
 async def create_customer(customer: CustomerCreate, db: Session = Depends(get_db)):
     """
     Create a new customer in the system. The customer can be either individual or corporate.
@@ -112,17 +112,17 @@ async def create_customer(customer: CustomerCreate, db: Session = Depends(get_db
 
 
 @router.post("/suspend-or-activate-customer")
-def suspend_or_activate_customer_route(customer_email: str, active_flag: int, notes: str, db: Session = Depends(get_db)):
+def suspend_or_activate_customer_route(customer_email: str, active_flag: int, remarks: str, db: Session = Depends(get_db)):
     """
     Suspend or activate a customer based on their email and active_flag.
-    The status of the customer is updated along with any notes provided.
+    The status of the customer is updated along with any remarks provided.
     """
-    updated_customer = suspend_or_active_customer_crud(db, customer_email, active_flag, notes)
+    updated_customer = suspend_or_active_customer_crud(db, customer_email, active_flag, remarks)
     return {"message": "Customer status updated", "customer": updated_customer}
 
 
 @router.post("/verifycustomer", status_code=status.HTTP_200_OK)
-async def verify_customer_api(
+async def verify_customer(
     customer_email: str,
     verification_status: str,
     db: Session = Depends(get_db)
@@ -140,8 +140,8 @@ async def verify_customer_api(
         raise HTTPException(status_code=e.status_code, detail=e.detail)
 
 
-@router.get("/customers/{customer_email}/profile", response_model=dict)
-def get_customer_profile_route(
+@router.get("/{customer_email}/profile", response_model=dict)
+def get_customer_profile(
     customer_email: str, db: Session = Depends(get_db)
 ):
     """
@@ -157,11 +157,19 @@ def get_customer_profile_route(
         # Log and re-raise the exception in case of an unexpected error
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                              detail=f"An unexpected error occurred: {str(e)}")
+    
+
+@router.get("/customerslistbookings", response_model=list)
+def get_customers_with_bookings(db: Session = Depends(get_db)):
+    """
+    Endpoint to retrieve all customers with their booking summaries.
+    """
+    return fetch_all_customers_with_bookings(db)    
 
 
 # Get customer with booking list
-@router.get("/customer/{customer_id}/bookinglist", response_model=CustomerBookingListResponse)
-def get_customer_booking_list_api(customer_id: int, db: Session = Depends(get_db)):
+@router.get("/{customer_id}/bookinglist", response_model=CustomerBookingListResponse)
+def get_customer_booking_list(customer_id: int, db: Session = Depends(get_db)):
     """
     Retrieve the list of bookings associated with a customer, identified by their customer ID.
     Includes validation for corporate customer details.
@@ -229,7 +237,7 @@ def get_customer_booking_list_api(customer_id: int, db: Session = Depends(get_db
 
 
 # Get customer booking details
-@router.get("/customers/{customer_id}/bookings/{booking_id}")
+@router.get("/{customer_id}/bookings/{booking_id}")
 def get_booking_details(
     customer_id: int,
     booking_id: int,
@@ -249,7 +257,7 @@ def get_booking_details(
 
 # Update customer by ID
 @router.put("/{customer_id}/updatecustomer", response_model=CustomerUpdateResponse, status_code=status.HTTP_200_OK)
-async def edit_customer_api(customer_id: int, customer: CustomerUpdate, db: Session = Depends(get_db)):
+async def edit_customer(customer_id: int, customer: CustomerUpdate, db: Session = Depends(get_db)):
     """
     Update the details of an existing customer identified by their customer ID.
     Fields are updated only if provided in the request body.
@@ -272,7 +280,7 @@ async def edit_customer_api(customer_id: int, customer: CustomerUpdate, db: Sess
 
 # Delete customer by ID
 @router.delete("/{customer_id}/deletecustomer", status_code=status.HTTP_200_OK)
-async def delete_customer_api(customer_id: int, db: Session = Depends(get_db)):
+async def delete_customer(customer_id: int, db: Session = Depends(get_db)):
     """
     Soft delete a customer identified by their customer ID. 
     The customer is marked as deleted but the record is not removed from the database.
@@ -289,20 +297,3 @@ async def delete_customer_api(customer_id: int, db: Session = Depends(get_db)):
     return {"detail": f"Customer {customer.customer_name} (ID: {customer.customer_id}) marked as deleted successfully"}
 
 
-@router.post("/verifycustomer", status_code=status.HTTP_200_OK)
-async def verify_customer_api(
-    customer_email: str,
-    verification_status: str,
-    db: Session = Depends(get_db)
-):
-    """
-    Verify a customer's status by email. The verification status is updated as per the provided status.
-    This is used for verifying corporate customers.
-    """
-    try:
-        # Call the verify_customer_in_crud function that wraps verify_corporate_customer
-        updated_customer = verify_customer_in_crud(db, customer_email, verification_status)
-        return updated_customer
-    except HTTPException as e:
-        # Forward the exception if any occurs
-        raise HTTPException(status_code=e.status_code, detail=e.detail)

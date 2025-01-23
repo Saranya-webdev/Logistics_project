@@ -1,11 +1,11 @@
 # app/models/enums.py
 import enum
 
-class CustomerType(str, enum.Enum):
+class Type(str, enum.Enum):
     individual = "individual"
     corporate = "corporate"
 
-class CustomerCategory(str, enum.Enum):
+class Category(str, enum.Enum):
     tier_1 = 'tier_1'
     tier_2 = 'tier_2'
     tier_3 = 'tier_3'
