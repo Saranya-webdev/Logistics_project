@@ -44,13 +44,17 @@ class Bookings(Base):
     booking_status = Column(SQLEnum(PickupStatus, name="pickup_status_enum"), nullable=True)
     payment_status = Column(SQLEnum(PaymentStatus, name="payment_status_enum"), default=PaymentStatus.picked, nullable=False)
     
-    # Relationships
     customer_id = Column(Integer, ForeignKey('customer.customer_id'))
+    agent_id = Column(Integer, ForeignKey('agent.agent_id'))
+    quotation_id = Column(Integer, ForeignKey('quotation.quotation_id'))
+
+    # Relationships
     customer = relationship("Customer", back_populates="bookings", foreign_keys=[customer_id])
     booking_items = relationship("BookingItem", back_populates="booking")
     customer_payments = relationship("CustomerPayments", back_populates="booking")
-    quotation_id = Column(Integer, ForeignKey('quotation.quotation_id'))
     quotation = relationship("Quotations", back_populates="bookings", foreign_keys=[quotation_id])
+    agent = relationship("Agent", back_populates="bookings")
+    
 
     class Config:
         orm_mode = True

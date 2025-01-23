@@ -3,8 +3,6 @@ from datetime import datetime, date, time
 from typing import List, Optional
 from app.models.enums import PickupMethod, PickupStatus, PackageType,RatingEnum
 
-
-
 class BookingSummary(BaseModel):
     booking_id: int
     from_city: str

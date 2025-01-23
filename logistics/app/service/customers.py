@@ -3,7 +3,7 @@ from app.models.customers import Customer, CustomerBusiness
 from app.models.bookings import Bookings
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from app.utils import check_existing_customer
+from app.utils import check_existing_customer_by_email
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ def create_customer_service(db: Session, customer_data: dict) -> dict:
     from app.models import CustomerBusiness  # Import CustomerBusiness
 
     try:
-        existing_customer = check_existing_customer(db, customer_data["customer_email"])
+        existing_customer = check_existing_customer_by_email(db, customer_data["customer_email"])
         if existing_customer:
             return {"message": "Customer already exists"}
 
@@ -161,20 +161,50 @@ def update_customer_service(db: Session, customer_data: dict) -> dict:
 
     
 
-def suspend_or_activate_customer(db: Session, customer_email: str, active_flag: int, remarks: str) -> dict:
+def suspend_or_activate_customer(
+    db: Session, customer_email: str, active_flag: int, remarks: str
+) -> dict:
     from app.crud.customers import get_customer_by_email, update_customer_status
-    
+    """
+    Suspend, activate, or set a customer's status to pending based on the provided active_flag.
+
+    Args:
+        db (Session): Database session.
+        customer_email (str): Customer's email address.
+        active_flag (int): Status to update the customer to (0: Pending, 1: Active, 2: Suspended).
+        remarks (str): Additional remarks for the status update.
+
+    Returns:
+        dict: Updated customer details with active_flag and verification_status.
+    """
+    # Validate the active_flag
     if active_flag not in [0, 1, 2]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid active flag value. Use 0, 1, or 2.")
-    
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid active flag value. Use 0 (Pending), 1 (Active), or 2 (Suspended)."
+        )
+
+    # Retrieve the customer based on email
     existing_customer = get_customer_by_email(db, customer_email)
     if not existing_customer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer not found"
+        )
+
+    # Update the customer's status and remarks
     update_customer_status(db, existing_customer, active_flag, remarks)
     db.refresh(existing_customer)
 
-    # Step 3: Return the updated customer details
+    # Map active_flag to a readable verification status
+    verification_status_map = {
+        0: "Pending",
+        1: "Verified",
+        2: "Suspended"
+    }
+    verification_status = verification_status_map.get(active_flag, "Unknown")
+
+    # Return the updated customer details
     return {
         "customer_id": existing_customer.customer_id,
         "customer_name": existing_customer.customer_name,
@@ -186,9 +216,11 @@ def suspend_or_activate_customer(db: Session, customer_email: str, active_flag: 
         "customer_country": existing_customer.customer_country,
         "customer_pincode": existing_customer.customer_pincode,
         "customer_geolocation": existing_customer.customer_geolocation,
-        "active": existing_customer.active,
-        "remarks": existing_customer.remarks
+        "active_flag": active_flag,
+        "verification_status": verification_status,
+        "remarks": remarks
     }
+
 
 
 def verify_corporate_customer(db: Session, customer_email: str, verification_status: str) -> dict:
@@ -196,7 +228,7 @@ def verify_corporate_customer(db: Session, customer_email: str, verification_sta
 
     # Validate the verification status
     if verification_status not in ["verified", "pending"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid verification status. Use 'verified' or 'not verified'.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid verification status. Use 'verified' or 'not pending'.")
 
     # Step 1: Check if the customer exists based on email
     existing_customer = get_customer_by_email(db, customer_email)
@@ -223,7 +255,7 @@ def verify_corporate_customer(db: Session, customer_email: str, verification_sta
         "message": "Customer verification status updated successfully."
     }
 
-def get_customer_profile(db: Session, customer_email: str) -> dict:
+def fetch_customer_profile(db: Session, customer_email: str) -> dict:
     from app.crud.customers import get_customer_by_email, get_corporate_customer_details
 
     # Step 1: Retrieve the customer details using the email
@@ -262,6 +294,7 @@ def get_customer_profile(db: Session, customer_email: str) -> dict:
             response["business_details"] = "No additional business details available"
 
     return response
+
 
 
 def get_all_customers_with_booking_list(db: Session) -> list:

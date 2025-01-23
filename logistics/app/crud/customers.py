@@ -3,7 +3,7 @@ from fastapi import HTTPException, status
 from app.models.customers import Customer, Category, Type, CustomerBusiness
 from app.models.bookings import Bookings
 from app.schemas.customers import CustomerUpdateResponse
-from app.utils import log_and_raise_exception, populate_dynamic_entries, check_existing_customer
+from app.utils import log_and_raise_exception, populate_dynamic_entries, check_existing_customer_by_email
 from app.service.customers import create_customer_service, get_all_customers_with_booking_list, get_customer_with_booking_details, verify_corporate_customer, suspend_or_activate_customer
 import logging
 from datetime import datetime
@@ -43,7 +43,7 @@ def create_customer(db: Session, customer_data: dict) -> dict:
 def get_customer_by_email(db: Session, customer_email: str) -> Customer:
     """Retrieve a customer from the database based on their email."""
     try:
-        customer = check_existing_customer(db, customer_email)
+        customer = check_existing_customer_by_email(db, customer_email)
         if not customer:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
         return customer

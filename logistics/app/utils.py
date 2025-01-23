@@ -2,7 +2,10 @@ import logging
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.models.customers import Customer
+from app.models.agents import Agent
 from app.models.enums import Category, Type
+from passlib.context import CryptContext
+
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -110,6 +113,38 @@ def populate_dynamic_entries(db: Session, model, enum_list, field_name: str):
 
 # ========== Customer Validation ==========
 
-def check_existing_customer(db: Session, email: str):
+def check_existing_customer_by_email(db: Session, email: str):
     """Check if a customer with the given email already exists."""
     return db.query(Customer).filter(Customer.customer_email == email).first()
+
+
+# ========== Agent Validation ==========
+
+def check_existing_agent_by_mobile(db: Session, mobile: str):
+    """Check if an agent with the given mobile number already exists."""
+    return db.query(Agent).filter(Agent.agent_mobile == mobile).first()
+
+
+# Initialize a password context
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    """Hash the password securely."""
+    return pwd_context.hash(password)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify the hashed password against a plain text password."""
+    return pwd_context.verify(plain_password, hashed_password)
+
+def process_credentials(agent_data: dict) -> dict:
+    """
+    Extract and process credentials from the agent data.
+    """
+    credential_fields = ["email_id", "password"]
+    credentials_data = {field: agent_data.pop(field, None) for field in credential_fields}
+
+    # Hash the password if it exists
+    if credentials_data.get("password"):
+        credentials_data["password"] = hash_password(credentials_data["password"])
+
+    return credentials_data

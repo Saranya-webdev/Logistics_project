@@ -22,11 +22,12 @@ class Agent(Base):
     agent_country = Column(String(255), nullable=False)
     agent_pincode = Column(String(255), nullable=True)
     agent_geolocation = Column(String(255), nullable=False)
-    customer_category = Column(
+    agent_category = Column(
         Enum(Category, name="customer_category_enum"), nullable=False
     )
-
-    notes = Column(String(255), nullable=True)
+    agent_businessname = Column(String(255), nullable=False)
+    tax_id = Column(String(255), nullable=False)
+    remarks = Column(String(255), nullable=True)
     verification_status = Column(String(255), nullable=False, default="none")
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
@@ -35,9 +36,10 @@ class Agent(Base):
     deleted_at = Column(DateTime, nullable=True)
     # created_by = Column(Integer, ForeignKey("user.user_id"))
     # updated_by = Column(Integer, ForeignKey("user.user_id"))
-    
 
-    bookings = relationship('Bookings', back_populates='customer', foreign_keys=[Bookings.agent_id], cascade="all, delete-orphan")
+    is_active = Column(Boolean, default=True, comment="Indicates if the agent is active) or not")
+    agent_credentials = relationship("AgentCredential", back_populates="agent", cascade="all, delete-orphan")    
+    bookings = relationship('Bookings', back_populates='agent', foreign_keys=[Bookings.agent_id], cascade="all, delete-orphan")
 
     class Config:
         orm_mode = True

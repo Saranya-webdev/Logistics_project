@@ -30,8 +30,6 @@ class CustomerCreate(BaseModel):
     customer_geolocation: str
     customer_type: Type
     customer_category: Category
-    notes: Optional[str] = None
-    verification_status: str
 
     # Business-related fields for corporate customers
     tax_id: Optional[str] = None
@@ -73,7 +71,7 @@ class CustomerUpdate(BaseModel):
     customer_geolocation: Optional[str] = None
     customer_type: Optional[Type] = None
     customer_category: Optional[Category] = None
-    notes: Optional[str] = None
+    remarks: Optional[str] = None
     verification_status: Optional[str] = None
 
     # Business-related fields
@@ -116,7 +114,7 @@ class CustomerResponse(BaseModel):
     customer_geolocation: str
     customer_type: Type
     customer_category: Category
-    notes: Optional[str] = None
+    remarks: Optional[str] = None
     verification_status: str
     active_flag: int
     # Business-related fields
