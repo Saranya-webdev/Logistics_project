@@ -4,7 +4,7 @@ from app.schemas.customers import CustomerCreate,  CustomerResponse, CustomerUpd
 from app.models.customers import Customer, CustomerBusiness
 from app.databases.mysqldb import get_db
 import logging
-from app.service.customers import create_customer_service, get_customer_profile
+from app.service.customers import create_customer_service, fetch_customer_profile
 from app.crud.customers import update_customer, get_customers_and_bookings, soft_delete_customer, get_customer, verify_customer_in_crud, suspend_or_active_customer_crud, fetch_all_customers_with_bookings
 
 router = APIRouter() 
@@ -149,7 +149,8 @@ def get_customer_profile(
     If the customer is corporate, additional business details will be provided.
     """
     try:
-        profile = get_customer_profile(db, customer_email)
+        # Call the correctly named database utility function
+        profile = fetch_customer_profile(db, customer_email)
         return profile
     except HTTPException as e:
         raise e
@@ -157,6 +158,7 @@ def get_customer_profile(
         # Log and re-raise the exception in case of an unexpected error
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                              detail=f"An unexpected error occurred: {str(e)}")
+
     
 
 @router.get("/customerslistbookings", response_model=list)
