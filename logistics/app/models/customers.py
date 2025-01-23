@@ -4,7 +4,7 @@ from app.models.base import Base
 from sqlalchemy.orm import relationship
 from app.models.bookings import Bookings
 from app.models.quotations import Quotations
-from app.models.enums import CustomerType, CustomerCategory
+from app.models.enums import Type,Category
 
 
 # Enum definitions for CustomerType and CustomerCategory
@@ -26,14 +26,14 @@ class Customer(Base):
     customer_geolocation = Column(String(255), nullable=False)
 
     customer_type = Column(
-        Enum(CustomerType, name="customer_type_enum"), nullable=False
+        Enum(Type, name="customer_type_enum"), nullable=False
     )
 
     customer_category = Column(
-        Enum(CustomerCategory, name="customer_category_enum"), nullable=False
+        Enum(Category, name="customer_category_enum"), nullable=False
     )
 
-    notes = Column(String(255), nullable=True)
+    remarks = Column(String(255), nullable=True)
     verification_status = Column(String(255), nullable=False, default="none")
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
@@ -101,7 +101,7 @@ class CustomerMargin(Base):
     __table_args__ = {'extend_existing': True}
 
     customer_margin_id = Column(Integer, primary_key=True)
-    customer_type = Column(Enum(CustomerType, name="customer_type_enum"), nullable=True)
+    customer_type = Column(Enum(Type, name="customer_type_enum"), nullable=True)
     cost = Column(DECIMAL(10, 2), nullable=False)
     customer_id = Column(Integer, ForeignKey('customer.customer_id'))  # Added customer_id field
     created_at = Column(DateTime, nullable=False, default=func.now())
