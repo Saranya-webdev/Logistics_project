@@ -20,7 +20,7 @@ def log_error(message: str, status_code: int):
 
 
 # CRUD operations for Agent
-def create_agent(db: Session, agent_data: dict) -> dict:
+def create_agent_crud(db: Session, agent_data: dict) -> dict:
     """CRUD operation for creating an agent, calling business logic from create_agent_service."""
     from app.service.agents import create_agent_service
 
