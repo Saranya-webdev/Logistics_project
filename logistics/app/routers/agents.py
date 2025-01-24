@@ -4,7 +4,7 @@ from app.schemas.agents import AgentCreate,  AgentResponse, AgentUpdate, AgentUp
 from app.models.agents import Agent
 from app.databases.mysqldb import get_db
 import logging
-from app.crud.agents import update_agent, get_agents_and_bookings, soft_delete_agent ,fetch_all_agents_with_bookings,create_agent,get_agent
+from app.crud.agents import update_agent, get_agents_and_bookings, soft_delete_agent ,fetch_all_agents_with_bookings,create_agent_crud,get_agent
 from app.service.agents import update_agent_service, verify_agent_service, suspend_or_activate_agent,get_agent_profile, get_agent_booking_list
 
 router = APIRouter() 
@@ -16,13 +16,13 @@ logging.basicConfig(level=logging.INFO)
 
 # Define the POST endpoint for creating an agent
 @router.post("/agents", status_code=status.HTTP_201_CREATED)
-def create_agent(agent_data: AgentCreate, db: Session = Depends(get_db)):
+def create_agent_endpoint(agent_data: AgentCreate, db: Session = Depends(get_db)):
     """
     API endpoint to create a new agent.
     """
     try:
-        # Call the service to create an agent
-        result = create_agent(db, agent_data.dict())
+        logger.debug(f"Received agent_data: {agent_data}")
+        result = create_agent_crud(db, agent_data.dict())  # Explicitly call the CRUD function
 
         if result.get("message") == "Agent already exists":
             raise HTTPException(
@@ -30,7 +30,6 @@ def create_agent(agent_data: AgentCreate, db: Session = Depends(get_db)):
                 detail="Agent with this mobile number already exists."
             )
 
-        # Return the result if successful
         return result
 
     except HTTPException as e:
@@ -44,14 +43,31 @@ def create_agent(agent_data: AgentCreate, db: Session = Depends(get_db)):
         )
     
 
-@router.post("/suspend-or-activate-agent/")
-def suspend_or_activate_agent_route(agent_mobile: str, active_flag: int, remarks: str, db: Session = Depends(get_db)):
+@router.post("/suspend-or-activate/", status_code=status.HTTP_200_OK)
+def update_agent_status(
+    agent_mobile: str,
+    active_flag: int,
+    remarks: str,
+    db: Session = Depends(get_db)
+):
     """
-    Suspend or activate a agent based on their mobile and active_flag.
-    The status of the agent is updated along with any remarks provided.
+    API to activate or suspend an agent.
     """
-    updated_agent = suspend_or_activate_agent(db, agent_mobile, active_flag, remarks)
-    return {"message": "Agent status updated", "agent": updated_agent}    
+    from app.service.agents import suspend_or_activate_agent
+
+    try:
+        # Call the service function to handle status update
+        result = suspend_or_activate_agent(db, agent_mobile, active_flag, remarks)
+        return result
+    except HTTPException as http_exc:
+        # Handle HTTP-specific exceptions
+        raise http_exc
+    except Exception as e:
+        # Handle unexpected exceptions
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while updating agent status: {str(e)}"
+        )    
 
 @router.post("/verifyagent/")
 async def verify_agent(agent_mobile: str, verification_status: str, db: Session = Depends(get_db)):

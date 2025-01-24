@@ -155,7 +155,10 @@ def suspend_or_activate_agent(db: Session, agent_mobile: str, active_flag: int, 
         update_agent_status(db, existing_agent, active_flag, remarks)
         db.refresh(existing_agent)
 
-        # Step 4: Return the updated agent details
+        # Step 4: Dynamically set verification status
+        verification_status = "Verified" if active_flag == 1 else "Suspend"
+
+        # Step 5: Return the updated agent details
         return {
             'message': 'Agent status updated successfully.',
             "agent": {
@@ -172,13 +175,12 @@ def suspend_or_activate_agent(db: Session, agent_mobile: str, active_flag: int, 
                 "agent_category": existing_agent.agent_category.value,
                 "agent_businessname": existing_agent.agent_businessname,
                 "tax_id": existing_agent.tax_id,
-                "active": active_flag == 1,
-                "verification_status": existing_agent.verification_status,
+                "active_flag": active_flag,
+                "verification_status": verification_status,
                 "remarks": existing_agent.remarks
             }
         }
     
-
     except HTTPException as http_exc:
         # Re-raise HTTP exceptions
         raise http_exc
@@ -189,6 +191,8 @@ def suspend_or_activate_agent(db: Session, agent_mobile: str, active_flag: int, 
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error updating agent status: {str(e)}"
         )
+
+
 
 def verify_agent_service(db: Session, agent_mobile: str, verification_status: str) -> dict:
     """
