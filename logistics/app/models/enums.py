@@ -1,40 +1,49 @@
 # app/models/enums.py
-import enum
+from enum import Enum
 
-class Type(str, enum.Enum):
+class Type(Enum):
     individual = "individual"
     corporate = "corporate"
 
-class Category(str, enum.Enum):
-    tier_1 = 'tier_1'
-    tier_2 = 'tier_2'
-    tier_3 = 'tier_3'
+class Category(Enum):
+    tier_1 = "tier_1"
+    tier_2 = "tier_2"
+    tier_3 = "tier_3"
 
 
-class PickupMethod(str, enum.Enum):
+class PickupMethod(Enum):
     user_address = 'user_address'
     drop_point = 'drop_point'
 
-class PackageType(str, enum.Enum):
+class PackageType(Enum):
     Box = 'Box'
     Envelope = 'Envelope'
     Other = 'other'
 
-class PickupStatus(str, enum.Enum):
+class PickupStatus(Enum):
     pending = 'pending'
     confirmed = 'confirmed'
     shipped = 'shipped'
     delivered = 'delivered'
     cancelled = 'cancelled'
 
-class PaymentStatus(str, enum.Enum):
+class PaymentStatus(Enum):
     picked = "Picked"
     transit = "In Transit"
     delivered = "Delivered"
 
-class RatingEnum(str, enum.Enum):
+class RatingEnum(Enum):
     One = "1"
     Two = "2"
     Three = "3"
     Four = "4"
     Five = "5"
+
+class VerificationStatus(Enum):
+    none = "none"
+    pending = "pending"
+    verified = "verified"
+
+class Role(Enum):
+    admin = "admin"
+    super_admin = "super_admin"

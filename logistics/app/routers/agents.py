@@ -1,98 +1,102 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.schemas.agents import AgentCreate,  AgentResponse, AgentUpdate, AgentUpdateResponse,AgentBookingListResponse
-from app.models.agents import Agent
 from app.databases.mysqldb import get_db
 import logging
-from app.crud.agents import update_agent, get_agents_and_bookings, soft_delete_agent ,fetch_all_agents_with_bookings,create_agent_crud,get_agent
-from app.service.agents import update_agent_service, verify_agent_service, suspend_or_activate_agent,get_agent_profile, get_agent_booking_list
+from app.schemas.agents import AgentCreate, AgentResponse, AgentUpdateResponse, AgentUpdate
+from app.crud.agents import create_agent_crud, update_agent_by_id, suspend_or_activate_agent_crud, get_agent_profile_crud, get_agent_profiles_list_crud, soft_delete_agent_crud
 
-router = APIRouter() 
-
-# Configure logger
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
+# Create a FastAPI router
+router = APIRouter()
 
-# Define the POST endpoint for creating an agent
-@router.post("/agents", status_code=status.HTTP_201_CREATED)
-def create_agent_endpoint(agent_data: AgentCreate, db: Session = Depends(get_db)):
+@router.post("/createagent/", response_model=AgentResponse, status_code=status.HTTP_201_CREATED)
+async def create_agent(
+    agent_data: AgentCreate,  # agent data will be passed in the request body
+    db: Session = Depends(get_db)  # Database session dependency
+):
     """
-    API endpoint to create a new agent.
+    Endpoint to create a new agent. It validates the required fields and creates the agent in the system.
     """
     try:
-        logger.debug(f"Received agent_data: {agent_data}")
-        result = create_agent_crud(db, agent_data.dict())  # Explicitly call the CRUD function
+        # Log the received agent data
+        logger.debug(f"Received agent data: {agent_data}")
 
-        if result.get("message") == "Agent already exists":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Agent with this mobile number already exists."
-            )
+        # Call the CRUD function to create the agent in the database
+        result = create_agent_crud(db=db, agent_data=agent_data.dict())
 
-        return result
+        if isinstance(result, dict) and "message" in result:
+            if result["message"] == "agent created successfully":
+                return AgentResponse(**result)  # Return the agent creation success response
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=result["message"]
+                )
 
-    except HTTPException as e:
-        logger.error(f"HTTPException: {e.detail}")
-        raise e
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An internal error occurred. Please try again later."
+            detail="Error occurred while creating agent."
+        )
+
+    except Exception as e:
+        logger.error(f"Error in creating agent: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating agent: {str(e)}"
         )
     
+@router.put("/{agent_id}/updateagent", response_model=AgentUpdateResponse, status_code=status.HTTP_200_OK)
+def edit_agent(agent_id: int, agent: AgentUpdate, db: Session = Depends(get_db)):
+    """
+    Update the details of an existing agent identified by their agent ID.
+    Fields are updated only if provided in the request body.
+    """
+    try:
+        updated_agent = update_agent_by_id(db, agent_id, agent.dict())  # .dict() to convert Pydantic model to a dictionary
+        return updated_agent
+    except Exception as e:
+        logger.error(f"Error updating agent: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error updating agent: {str(e)}")
+
 
 @router.post("/suspend-or-activate/", status_code=status.HTTP_200_OK)
-def update_agent_status(
-    agent_mobile: str,
+async def update_agent_status(
+    agent_mobile: str,  # This must match the query parameter name
     active_flag: int,
     remarks: str,
     db: Session = Depends(get_db)
 ):
     """
-    API to activate or suspend an agent.
+    API to activate or suspend a agent.
     """
-    from app.service.agents import suspend_or_activate_agent
-
     try:
-        # Call the service function to handle status update
-        result = suspend_or_activate_agent(db, agent_mobile, active_flag, remarks)
+        # Validate input for active_flag to ensure it's 1 or 2
+        if active_flag not in [1, 2]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="active_flag must be 1 (active) or 2 (suspend)"
+            )
+        
+        result = suspend_or_activate_agent_crud(db, agent_mobile, active_flag, remarks)
         return result
     except HTTPException as http_exc:
-        # Handle HTTP-specific exceptions
         raise http_exc
     except Exception as e:
-        # Handle unexpected exceptions
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while updating agent status: {str(e)}"
-        )    
-
-@router.post("/verifyagent/")
-async def verify_agent(agent_mobile: str, verification_status: str, db: Session = Depends(get_db)):
-    """
-    Verify the agent by email and mobile, and update the verification status and active flag.
-    If the status is 'Verified', the active flag is set to 1.
-    """
-    # Step 1: Call the service to verify the agent
-    result = verify_agent_service(db, agent_mobile, verification_status)
-
-    # Step 2: If no agent is found, return an error
-    if "message" in result and result["message"] == "No agents found":
-        raise HTTPException(status_code=404, detail="No agents found")
-
-    # Step 3: Return the updated agent response
-    return result
+        )
 
 
 @router.get("/{agent_mobile}/profile", response_model=dict)
 def get_agent_profile_endpoint(agent_mobile: str, db: Session = Depends(get_db)):
     """
-    Retrieve the profile of an agent based on their mobile number.
+    Retrieve the profile of a agent based on their mobile number.
     """
     try:
-        profile = get_agent_profile(db, agent_mobile)
+        # Call the CRUD method to get the agent profile
+        profile = get_agent_profile_crud(db, agent_mobile)
         return profile
     except HTTPException as e:
         raise e
@@ -100,81 +104,38 @@ def get_agent_profile_endpoint(agent_mobile: str, db: Session = Depends(get_db))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail=f"An unexpected error occurred: {str(e)}")
 
-
-@router.get("/agentslistbookinglist/", response_model=list)
-def get_agents_with_bookings(db: Session = Depends(get_db)):
+@router.get("/agentsprofilelist/", response_model=list)
+def get_agents(db: Session = Depends(get_db)):
     """
-    Endpoint to retrieve all agents with their booking summaries.
+    Endpoint to retrieve all agent profiles.
     """
-    return fetch_all_agents_with_bookings(db)
-
-
-# Get agent with booking list
-@router.get("/{agent_id}/bookinglist/", response_model=AgentBookingListResponse)
-def get_agent_booking_list_endpoint(agent_id: int, db: Session = Depends(get_db)):
-    """
-    Retrieve the list of bookings associated with agent, identified by their agent ID.
-    """
-    return get_agent_booking_list(agent_id, db)
-    
-# Get agent booking details
-@router.get("/{agent_id}/bookings/{booking_id}/", response_model=AgentBookingListResponse)
-def get_booking_details(
-    agent_id: int,
-    booking_id: int,
-    db: Session = Depends(get_db)
-):
-    """
-    Retrieve details for a specific booking of a agent identified by their agent ID and booking ID.
-    """
-    from app.crud.agents import get_agent_booking_details
     try:
-        return get_agent_booking_details(db, agent_id, booking_id)
+        # Attempt to fetch all agent profiles from the service layer
+        return get_agent_profiles_list_crud(db)
+    except HTTPException as e:
+        # If an HTTPException is raised, return it as is
+        raise e
+    except Exception as e:
+        # For other types of exceptions, raise a general 500 error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred: {str(e)}"
+        )
+
+
+@router.delete("/{agent_id}/soft-delete", response_model=dict)
+def soft_delete_agent_endpoint(agent_id: int, db: Session = Depends(get_db)):
+    """
+    Endpoint to soft delete a agent based on their ID.
+    """
+    try:
+        # Call the service layer for soft deletion
+        deleted_agent = soft_delete_agent_crud(db, agent_id)
+        return {"message": "agent soft-deleted successfully", "agent_id": deleted_agent.agent_id}
     except HTTPException as e:
         raise e
     except Exception as e:
-        raise HTTPException(status_code=500, detail="An error occurred while fetching booking details.")    
-    
-
-# Update agent by ID
-@router.put("/{agent_id}/updateagent", response_model=AgentUpdateResponse, status_code=status.HTTP_200_OK)
-async def edit_agent(agent_id: int, agent: AgentUpdate, db: Session = Depends(get_db)):
-    """
-    Update the details of an existing agent identified by their agent ID.
-    Fields are updated only if provided in the request body.
-    """
-    # Step 1: Check if any fields are provided for update
-    if not any(value is not None for value in agent.dict(exclude_unset=True).values()):
-        raise HTTPException(status_code=400, detail="No fields to update")
-    
-    # Step 2: Check if the agent exists
-    existing_agent = db.query(Agent).filter(Agent.agent_id == agent_id).first()
-    if not existing_agent:
-        raise HTTPException(status_code=404, detail="Agent ID not found")
-    
-    # Step 3: Call the update_agent function to update agent data
-    updated_agent = update_agent(db, agent_id, agent.dict(exclude_unset=True))
-    
-    # Step 4: Return the updated agent response
-    return updated_agent
-
-
-# Delete agent by ID
-@router.delete("/{agent_id}/deleteagent", status_code=status.HTTP_200_OK)
-async def delete_agent(agent_id: int, db: Session = Depends(get_db)):
-    """
-    Soft delete a agent identified by their agent ID. 
-    The agent is marked as deleted but the record is not removed from the database.
-    """
-    agent = get_agent(db, agent_id)
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
-    
-    if agent.deleted:
-        raise HTTPException(status_code=400, detail="Agent already marked as deleted")
-    
-    # Proceed with soft delete if agent exists and isn't deleted yet
-    soft_delete_agent(db, agent_id)
-    return {"detail": f"Agent {agent.agent_name} (ID: {agent.agent_id}) marked as deleted successfully"}
-
-
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while soft deleting the agent: {str(e)}"
+        )

@@ -2,8 +2,7 @@ from sqlalchemy import Integer, String, Column, DateTime, ForeignKey, Boolean, E
 from sqlalchemy.sql import func
 from app.models.base import Base
 from sqlalchemy.orm import relationship
-from app.models.bookings import Bookings
-from app.models.enums import Category
+from app.models.enums import Category, VerificationStatus
 
     
 
@@ -28,7 +27,7 @@ class Agent(Base):
     agent_businessname = Column(String(255), nullable=False)
     tax_id = Column(String(255), nullable=False)
     remarks = Column(String(255), nullable=True)
-    verification_status = Column(String(255), nullable=False, default="none")
+    verification_status = Column(Enum(VerificationStatus), nullable=False, default=VerificationStatus.none)
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     active_flag = Column(Integer, default=1)
@@ -39,7 +38,6 @@ class Agent(Base):
 
     is_active = Column(Boolean, default=True, comment="Indicates if the agent is active) or not")
     agent_credentials = relationship("AgentCredential", back_populates="agent", cascade="all, delete-orphan")    
-    bookings = relationship('Bookings', back_populates='agent', foreign_keys=[Bookings.agent_id], cascade="all, delete-orphan")
 
     class Config:
         orm_mode = True
