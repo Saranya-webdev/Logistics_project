@@ -45,7 +45,6 @@ class Bookings(Base):
     payment_status = Column(SQLEnum(PaymentStatus, name="payment_status_enum"), default=PaymentStatus.picked, nullable=False)
     
     customer_id = Column(Integer, ForeignKey('customer.customer_id'))
-    agent_id = Column(Integer, ForeignKey('agent.agent_id'))
     quotation_id = Column(Integer, ForeignKey('quotation.quotation_id'))
 
     # Relationships
@@ -53,7 +52,6 @@ class Bookings(Base):
     booking_items = relationship("BookingItem", back_populates="booking")
     customer_payments = relationship("CustomerPayments", back_populates="booking")
     quotation = relationship("Quotations", back_populates="bookings", foreign_keys=[quotation_id])
-    agent = relationship("Agent", back_populates="bookings")
     
 
     class Config:

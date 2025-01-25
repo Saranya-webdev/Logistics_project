@@ -4,14 +4,12 @@ import os
 # Add the root directory of the project to the sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
 
-
-
+# Configuration from alembic.ini
 config = context.config
 
 # Interpret the config file for Python logging.
@@ -21,7 +19,8 @@ if config.config_file_name is not None:
 # Import the Base object from the correct path
 from logistics.app.models import Base
 
-target_metadata = Base.metadata  # Use the Base metadata
+# This will be used by Alembic to autogenerate migrations
+target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
@@ -38,20 +37,24 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
+    # Setup the database engine with the provided configuration
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
+    # Use the engine to connect to the database
     with connectable.connect() as connection:
         context.configure(
             connection=connection, target_metadata=target_metadata
         )
 
+        # Run migrations in a transaction
         with context.begin_transaction():
             context.run_migrations()
 
+# Determine whether to run in offline or online mode
 if context.is_offline_mode():
     run_migrations_offline()
 else:

@@ -11,10 +11,10 @@ class Carrier(BaseModel):
     carrier_country: str
     carrier_pincode: Optional[str] = None
     carrier_geolocation: str
-    active_flag: int
+    active_flag: int = 1
     remarks: Optional[str] = None
 
-class AgentCreate(BaseModel):
+class CarrierCreate(BaseModel):
     carrier_name: str
     carrier_email: Optional[str] = None
     carrier_mobile: str
@@ -29,7 +29,7 @@ class AgentCreate(BaseModel):
         from_attributes = True
         arbitrary_types_allowed = True
 
-class AgentUpdate(BaseModel):
+class CarrierUpdate(BaseModel):
     carrier_name: Optional[str] = None
     carrier_email: Optional[str] = None
     carrier_mobile: Optional[str] = None
@@ -45,7 +45,7 @@ class AgentUpdate(BaseModel):
         from_attributes = True
         arbitrary_types_allowed = True
 
-class AgentUpdateResponse(BaseModel):
+class CarrierUpdateResponse(BaseModel):
     carrier_id: int
     carrier_name: str
     carrier_email: str
@@ -60,7 +60,7 @@ class AgentUpdateResponse(BaseModel):
     remarks: Optional[str] = None      
 
 
-class AgentResponse(BaseModel):
+class CarrierResponse(BaseModel):
     carrier_id: int
     carrier_name: str
     carrier_email: str
@@ -77,18 +77,3 @@ class AgentResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
-class AgentBookingListResponse(BaseModel):
-    carrier_id: int
-    carrier_name: str
-    carrier_mobile: str
-    carrier_email: str
-    carrier_address: str
-    carrier_city: str
-    carrier_state: str
-    carrier_country: str
-    carrier_pincode: Optional[str]
-    carrier_geolocation: Optional[str]
-
-    class Config:
-        from_attributes = True
