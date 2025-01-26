@@ -65,16 +65,17 @@ class CustomerBusiness(Base):
     __table_args__ = {'extend_existing': True} 
 
     business_id = Column(Integer, primary_key=True)
-    tax_id = Column(String(255), nullable=False)
-    license_number = Column(String(255), nullable=False)
-    designation = Column(String(255), nullable=False)
-    company_name = Column(String(255), nullable=False)
+    tax_id = Column(String(255), nullable=True)
+    license_number = Column(String(255), nullable=True)
+    designation = Column(String(255), nullable=True)
+    company_name = Column(String(255), nullable=True)
     customer_id = Column(Integer, ForeignKey('customer.customer_id'))
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     is_active = Column(Boolean, default=True, comment="Indicates if the customer is active or not")
 
     customer = relationship("Customer", back_populates="customer_business")
+
 
     class Config:
         orm_mode = True
