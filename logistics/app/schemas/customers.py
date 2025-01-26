@@ -1,10 +1,9 @@
 from pydantic import BaseModel, root_validator, Field
 from typing import Optional, List
-from app.models.customers import Category, Type
+from app.models.enums import Category, Type, VerificationStatus
 from app.schemas.bookings import BookingSummary
-from app.models.enums import Type, Category, VerificationStatus
 
-class Customer(BaseModel):
+class CustomerBase(BaseModel):
     customer_name: str
     customer_email: str
     customer_mobile: str
@@ -13,10 +12,10 @@ class Customer(BaseModel):
     customer_state: str
     customer_country: str
     customer_pincode: Optional[str] = None
-    customer_geolocation: str
-    customer_type: str
-    customer_category: str
-    verification_status:VerificationStatus
+    customer_geolocation: Optional[str] = None
+    customer_type: Type
+    customer_category: Category
+    verification_status: VerificationStatus
     active_flag: int
 
 class CustomerCreate(BaseModel):

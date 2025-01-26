@@ -1,13 +1,14 @@
-from fastapi import HTTPException, status
-from app.models.customers import Customer, CustomerBusiness
-from app.models.bookings import Bookings
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from fastapi import HTTPException, status
+from app.models.customers import Customer, Category, Type, CustomerBusiness
+from app.models.bookings import Bookings
+from app.schemas.customers import CustomerUpdateResponse
+from app.utils import log_and_raise_exception, populate_dynamic_entries, check_existing_by_email
+from app.service.customers import create_customer_service, get_all_customers_with_booking_list, get_customer_with_booking_details, verify_corporate_customer, suspend_or_activate_customer
 import logging
 from datetime import datetime
-from app.utils import log_and_raise_exception, populate_dynamic_entries, check_existing_by_email
-from app.models.enums import Category, Type
 from typing import Optional
+
 
 logger = logging.getLogger(__name__)
 
@@ -18,47 +19,38 @@ def log_success(message: str):
 def log_error(message: str, status_code: int):
     logging.error(f"{message} - Status Code: {status_code}")
 
+
+# CRUD operations for Customer
+# CRUD operations for Customer
 def create_customer(db: Session, customer_data: dict) -> dict:
-    """
-    Calls the create_customer_service function with error handling.
-    """
-    from app.service.customers import create_customer_service
+    """CRUD operation for creating a customer, calling business logic from create_customer_service."""
+    logger.debug(f"Received customer data: {customer_data}")
+
     try:
-        # Call the create_customer_service function to create a customer
-        response = create_customer_service(db, customer_data)
-        return response  # Return the response from the service function
+        result = create_customer_service(db, customer_data)
+
+        if isinstance(result, dict):
+            return result
+        else:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error creating customer")
+    except HTTPException as e:
+        logger.error(f"Error in customer creation: {e.detail}")
+        raise e
     except Exception as e:
-        # Handle unexpected errors that may occur during the function call
-        return {"message": f"Error in create_customer CRUD operation: {str(e)}"}
+        logger.error(f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error creating customer: {str(e)}")
 
 
-def update_customer(db: Session, customer_data: dict) -> dict:
-    """
-    Calls the update_customer_service function with error handling.
-    """
-    from app.service.customers import update_customer_service
-    try:
-        # Call the update_customer_service function to update the customer
-        response = update_customer_service(db, customer_data)
-        return response  # Return the response from the service function
-    except Exception as e:
-        # Handle unexpected errors that may occur during the function call
-        return {"message": f"Error in update_customer CRUD operation: {str(e)}"}
-
-    
 
 def get_customer_by_email(db: Session, customer_email: str):
-    """
-    Retrieve a customer by email.
-    """
+    """Retrieve a customer from the database based on their email."""
     try:
-        return check_existing_by_email(db, "customer_email", customer_email)
+        customer = check_existing_by_email(db, Customer, "customer_email", customer_email)
+        if not customer:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
+        return customer
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving customer by email {customer_email}: {str(e)}"
-        )
-
+        log_and_raise_exception(f"Error retrieving customer by email {customer_email}: {str(e)}", 500)
 
 
 def get_customer_by_id(db: Session, customer_id: int) -> Customer:
@@ -69,47 +61,11 @@ def get_customer_by_id(db: Session, customer_id: int) -> Customer:
 def get_customer(db: Session, customer_id: int):
     return db.query(Customer).filter(Customer.customer_id == customer_id).first()
 
-def get_customer_profile_in_crud(db: Session, customer_email: str) -> dict:
-    """Fetch customer profile by email with error handling."""
-    from app.service.customers import get_customer_profile
-    try:
-        # Call the service function to get the customer profile
-        customer_profile = get_customer_profile(db, customer_email)
-        return customer_profile  # Return the profile if found
-    except HTTPException as e:
-        # Handle HTTPExceptions raised from the service (e.g., customer not found)
-        return {
-            "message": f"Error: {e.detail}",
-            "status_code": e.status_code
-        }
-    except Exception as e:
-        # Catch any other unexpected errors
-        return {
-            "message": f"Unexpected error: {str(e)}"
-        }
-
-
-def get_all_customers_with_booking_list_in_crud(db: Session) -> list:
-    """Fetch all customers along with their booking list summaries with error handling."""
-    from app.service.customers import get_all_customers_with_booking_list
-
-    try:
-        # Call the service function to get all customers with booking summaries
-        customer_list = get_all_customers_with_booking_list(db)
-        return customer_list  # Return the list of customers with booking summaries
-
-    except HTTPException as e:
-        # If an HTTPException is raised (e.g., no customers found)
-        return {
-            "message": f"Error: {e.detail}",
-            "status_code": e.status_code
-        }
-    except Exception as e:
-        # Catch any other unexpected errors
-        return {
-            "message": f"Unexpected error: {str(e)}"
-        }
-
+def fetch_all_customers_with_bookings(db: Session) -> list:
+    """
+    Wrapper function to call the service function that retrieves all customers with their booking list summaries.
+    """
+    return get_all_customers_with_booking_list(db)
 
 
 def get_customers_and_bookings(db: Session, customer_id: int):
@@ -126,25 +82,40 @@ def get_customers_and_bookings(db: Session, customer_id: int):
         raise HTTPException(status_code=500, detail=f"Error fetching customer with bookings: {str(e)}")
 
 
-def get_customer_with_booking_details_in_crud(db: Session, customer_id: int, booking_id: int) -> dict:
-    """Fetch customer and booking details with error handling."""
-    try:
-        from app.service.customers import get_customer_with_booking_details
-        # Call the service function to get the customer and booking details
-        booking_details = get_customer_with_booking_details(db, customer_id, booking_id)
-        return booking_details  # Return the booking details
+def get_customer_booking_details(db: Session, customer_id: int, booking_id: int):
+    """CRUD layer function that calls the service layer to get booking details."""
+    return get_customer_with_booking_details(db, customer_id, booking_id)
 
-    except HTTPException as e:
-        # If an HTTPException is raised (e.g., booking or customer not found)
-        return {
-            "message": f"Error: {e.detail}",
-            "status_code": e.status_code
-        }
-    except Exception as e:
-        # Catch any other unexpected errors
-        return {
-            "message": f"Unexpected error: {str(e)}"
-        }
+
+def update_customer(db: Session, customer_id: int, customer_data: dict):
+    """Update a customer with new data."""
+    customer = db.query(Customer).filter(Customer.customer_id == customer_id).first()
+
+    if customer:
+        for key, value in customer_data.items():
+            setattr(customer, key, value)
+
+        db.commit()
+        db.refresh(customer)
+
+        return CustomerUpdateResponse(
+            customer_id=customer.customer_id,
+            customer_name=customer.customer_name,
+            customer_email=customer.customer_email,
+            customer_mobile=customer.customer_mobile,
+            customer_address=customer.customer_address,
+            customer_city=customer.customer_city,
+            customer_state=customer.customer_state,
+            customer_country=customer.customer_country,
+            customer_pincode=customer.customer_pincode,
+            customer_geolocation=customer.customer_geolocation,
+            customer_type=customer.customer_type,
+            customer_category=customer.customer_category,
+            verification_status=customer.verification_status,
+            active_flag=customer.active_flag if customer.active_flag is not None else 0,
+        )
+
+    raise HTTPException(status_code=404, detail="Customer not found")
 
 
 def update_customer_status(db: Session, customer: Customer, active_flag: int, remarks: Optional[str] = None) -> None:
@@ -172,23 +143,7 @@ def update_customer_verification_status(db: Session, customer: Customer, active_
 
 def verify_customer_in_crud(db: Session, customer_email: str, verification_status: str) -> dict:
     """Verify corporate customer by email."""
-    try:
-        from app.service.customers import verify_corporate_customer
-        # Call the service function to verify the customer
-        result = verify_corporate_customer(db, customer_email, verification_status)
-        return result  # Return the result if successful
-    except HTTPException as e:
-        # Handle HTTPExceptions raised from the service (e.g., customer not found, invalid verification status)
-        return {
-            "message": f"Error: {e.detail}",
-            "status_code": e.status_code
-        }
-    except Exception as e:
-        # Catch any other unexpected errors
-        return {
-            "message": f"Unexpected error: {str(e)}"
-        }
-
+    return verify_corporate_customer(db, customer_email, verification_status)
 
 
 def soft_delete_customer(db: Session, customer_id: int):
@@ -196,7 +151,7 @@ def soft_delete_customer(db: Session, customer_id: int):
     customer = db.query(Customer).filter(Customer.customer_id == customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
-    
+
     customer.deleted = True
     customer.deleted_at = datetime.utcnow()
     db.add(customer)
@@ -204,26 +159,10 @@ def soft_delete_customer(db: Session, customer_id: int):
     return customer
 
 
-def suspend_or_activate_customer_crud(
-    db: Session, 
-    customer_email: str, 
-    active_flag: int, 
-    notes: str
-) -> dict:
-    """Handles the CRUD operation for suspending or activating a customer."""
-    from app.service.customers import suspend_or_activate_customer_service
-
-    try:
-        # Call the service layer to handle business logic
-        response = suspend_or_activate_customer_service(db, customer_email, active_flag, notes)
-        return response  # Return the response from the service function
-    except HTTPException as e:
-        # Handle expected HTTP exceptions (e.g., customer not found or invalid flag)
-        return {"message": f"Error: {e.detail}", "status_code": e.status_code}
-    except Exception as e:
-        # Handle unexpected errors
-        return {"message": f"Unexpected error: {str(e)}"}
-
+def suspend_or_active_customer_crud(db: Session, customer_email: str, active_flag: int, remarks: str):
+    """Suspend or activate customer."""
+    updated_customer = suspend_or_activate_customer(db, customer_email, active_flag, remarks)
+    return updated_customer
 
 
 # Additional functions for populating categories and types
@@ -253,3 +192,5 @@ def populate_customer_types(db: Session):
 def get_corporate_customer_details(db: Session, customer_id: int) -> CustomerBusiness:
     """Retrieve corporate customer business details."""
     return db.query(CustomerBusiness).filter(CustomerBusiness.customer_id == customer_id).first()
+
+
