@@ -6,7 +6,6 @@ from app.utils import log_and_raise_exception  # Correct import
 from typing import Optional
 from datetime import datetime
 
-
 logger = logging.getLogger(__name__)
 
 # Helper functions
@@ -17,125 +16,112 @@ def log_error(message: str, status_code: int):
     logging.error(f"{message} - Status Code: {status_code}")
 
 # CRUD operations for carrier
-def create_carrier_crud(db: Session, carrier_data: dict) -> dict:
-    """CRUD operation for creating a carrier."""
-    from app.service.carriers import create_carrier_service
-
-    logger.debug(f"Received carrier data: {carrier_data}")
-
+def create_carrier_crud(db: Session, carrier_data: dict) -> Carrier:
+    """
+    CRUD operation for creating a carrier in the database.
+    """
     try:
-        result = create_carrier_service(db, carrier_data)
-        
-        if isinstance(result, dict):
-            return result
-        else:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error creating carrier")
-    except HTTPException as e:
-        logger.error(f"Error in carrier creation: {e.detail}")
-        raise e
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error creating carrier: {str(e)}")
-
-
-def update_carrier_by_id(db: Session, carrier_id: int, carrier_data: dict) -> dict:
-    """Update a carrier's details based on carrier ID."""
-    from app.service.carriers import update_carrier_service
-
-    try:
-        # Call the update_carrier_service to handle the business logic
-        result = update_carrier_service(db, carrier_id, carrier_data)
-
-        # If the result from the service layer contains a message (such as 'No carriers found'), raise HTTPException
-        if "message" in result:
-            if result["message"] == "No carriers found":
-                raise HTTPException(status_code=404, detail="Carrier not found")  # Status code 404 for not found
-            else:
-                raise HTTPException(status_code=400, detail=result["message"])  # Status code 400 for client errors
-
-        # Return the successful result from the service layer
-        return result
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating carrier: {str(e)}")  # Status code 500 for server errors
-
-
-def update_carrier_status(db: Session, carrier: Carrier, active_flag: int, remarks: Optional[str] = None) -> None:
-    """Update carrier's active status and remarks."""
-    try:
-        carrier.active_flag = active_flag
-        if remarks is not None:
-            carrier.remarks = remarks
+        logger.info("Creating carrier in the database...")
+        new_carrier = Carrier(**carrier_data)
+        db.add(new_carrier)
         db.commit()
-        db.refresh(carrier)  # Ensure the carrier object is updated with new values
+        db.refresh(new_carrier)
+        return new_carrier
+    except Exception as e:
+        logger.error(f"Error while creating carrier: {str(e)}")
+        db.rollback()
+        raise
+
+
+def update_carrier_crud(db: Session, carrier_email: str, carrier_data: dict) -> Carrier:
+    """Update a carrier's details based on carrier email."""
+    try:
+        existing_carrier = db.query(Carrier).filter(
+            Carrier.carrier_email == carrier_email
+        ).first()
+
+        if not existing_carrier:
+            raise HTTPException(status_code=404, detail=f"Carrier with email {carrier_email} not found")
+
+        for field, value in carrier_data.items():
+            if hasattr(existing_carrier, field) and value is not None:
+                setattr(existing_carrier, field, value)
+
+        db.commit()
+        db.refresh(existing_carrier)
+        return existing_carrier
     except Exception as e:
         db.rollback()
-        log_and_raise_exception(f"Error updating carrier status: {str(e)}", 500)
+        logger.error(f"Error updating carrier: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating carrier: {str(e)}")
 
 
 
-def get_carrier_by_mobile(db: Session, carrier_mobile: str) -> Carrier:
-    """Retrieve a carrier from the database based on their mobile number."""
+
+def get_carrier_profile_crud(db: Session, carrier_email: str):
+    """
+    Retrieve an carrier from the database based on their email.
+    """
     try:
-        carrier = db.query(Carrier).filter(Carrier.carrier_mobile == carrier_mobile).first()
-        if not carrier:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Carrier not found")
+        # Query the carrier based on their email
+        carrier = db.query(Carrier).filter(Carrier.carrier_email == carrier_email).first()
         return carrier
     except Exception as e:
-        log_and_raise_exception(f"Error retrieving carrier by mobile {carrier_mobile}: {str(e)}", 500)
+        raise Exception(f"Database error while retrieving carrier: {str(e)}")
 
-def get_carrier_profile_crud(db: Session, carrier_mobile: str) -> dict:
-    """Call the service to retrieve a carrier's profile based on mobile number."""
-    from app.service.carriers import get_carrier_profile
+
+def get_all_carriers_list_crud(db: Session):
+    """
+    Retrieve all carriers from the database.
+    """
     try:
-        # Call the service function to get the carrier profile
-        profile = get_carrier_profile(db, carrier_mobile)
-        return profile
-    except HTTPException as e:
-        # Raise the exception if the carrier is not found
-        raise e
+        # Query all carriers from the database
+        carriers = db.query(Carrier).all()
+        return carriers
     except Exception as e:
-        # Log and raise a generic exception for other errors
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An error occurred while retrieving carrier profile: {str(e)}"
-        )
+        # Raise an exception if there's a database error
+        raise Exception(f"Database error while retrieving all carriers: {str(e)}")
 
-def get_carrier_profiles_list_crud(db: Session) -> list:
-    """Retrieve a list of all carrier profiles from the service layer."""
-    from app.service.carriers import get_carriers_profile_list
+
+def suspend_or_activate_carrier_crud(db: Session, carrier_email: str, active_flag: int, remarks: str):
+    """CRUD operation to suspend or activate a carrier."""
     try:
-        # Call the service function to get the list of all carrier profiles
-        carrier_profiles = get_carriers_profile_list(db)
-        return carrier_profiles
+        # Fetch the carrier by email
+        carrier = db.query(Carrier).filter(Carrier.carrier_email == carrier_email).first()
+        
+        if not carrier:
+            return None  # No carrier found
+
+        # Update the carrier's status
+        carrier.active_flag = active_flag
+        carrier.remarks = remarks
+
+        # Commit the changes to the database
+        db.commit()
+        db.refresh(carrier)
+
+        return carrier  # Return the updated carrier
+
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching carrier profiles: {str(e)}"
-        )
+        db.rollback()  # Rollback if there is any error
+        raise Exception(f"Error in updating carrier status: {str(e)}")
 
 
-def suspend_or_activate_carrier_crud(db: Session, carrier_mobile: str, active_flag: int, remarks: str):
-    """Suspend or activate carrier."""
-    from app.service.carriers import suspend_or_activate_carrier
-    
-    try:
-        updated_carrier = suspend_or_activate_carrier(db, carrier_mobile, active_flag, remarks)
-        return updated_carrier
-    except Exception as e:
-        log_and_raise_exception(f"Error in suspend or activate carrier: {str(e)}", 500)
-
-
-def soft_delete_carrier_crud(db: Session, carrier_id: int):
+def soft_delete_carrier_crud(db: Session, carrier_email: str):
     """Soft delete the carrier by setting the 'deleted' flag to True."""
-    carrier = db.query(Carrier).filter(Carrier.carrier_id == carrier_id).first()
+    carrier = db.query(Carrier).filter(Carrier.carrier_email == carrier_email).first()
+    
     if not carrier:
+        # Return a custom exception if the carrier is not found
         raise HTTPException(status_code=404, detail="Carrier not found")
     
     # Set the deleted flag and mark the deletion time
     carrier.deleted = True
     carrier.deleted_at = datetime.utcnow()
+    
+    # Add and commit the changes to the database
     db.add(carrier)
     db.commit()
     
+    # Return the updated carrier as confirmation
     return carrier

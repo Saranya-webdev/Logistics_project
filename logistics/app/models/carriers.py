@@ -28,7 +28,6 @@ class Carrier(Base):
     # created_by = Column(Integer, ForeignKey("user.user_id"))
     # updated_by = Column(Integer, ForeignKey("user.user_id"))
 
-    is_active = Column(Boolean, default=True, comment="Indicates if the carrier is active) or not")
 
     class Config:
         orm_mode = True

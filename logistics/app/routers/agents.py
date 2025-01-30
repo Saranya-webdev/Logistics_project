@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.schemas.agents import AgentCreate, AgentResponse, AgentUpdate, AgentUpdateResponse
-from app.models.agents import Agent
+from app.schemas.agents import AgentCreate, AgentResponse, AgentUpdate, AgentUpdateResponse, SuspendOrActiveResponse, SuspendOrActiveRequest, DeleteRequest,DeleteResponse, VerifyStatusResponse, VerifyStatusRequest
 from app.databases.mysqldb import get_db
 import logging
-from app.crud.agents import update_agent, soft_delete_agent, create_agent_crud, get_agent
-from app.service.agents import update_agent_service, verify_agent_service, suspend_or_activate_agent, get_agent_profile, get_all_agents_profile
+from app.service.agents import update_agent_service, verify_agent_service, suspend_or_activate_agent, get_agent_profile, get_all_agents_profile, create_agent_service, soft_delete_agent_service
 
 router = APIRouter()
 
@@ -14,14 +12,14 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 # Define the POST endpoint for creating an agent
-@router.post("/agents", status_code=status.HTTP_201_CREATED)
-def create_agent_endpoint(agent_data: AgentCreate, db: Session = Depends(get_db)):
+@router.post("/createagent", response_model=AgentResponse)
+async def create_new_agent(agent_data: AgentCreate, db: Session = Depends(get_db)):
     """
     API endpoint to create a new agent.
     """
     try:
         logger.debug(f"Received agent_data: {agent_data}")
-        result = create_agent_crud(db, agent_data.dict())  # Explicitly call the CRUD function
+        result = create_agent_service(db, agent_data.dict())  # Explicitly call the CRUD function
 
         if result.get("message") == "Agent already exists":
             raise HTTPException(
@@ -42,47 +40,55 @@ def create_agent_endpoint(agent_data: AgentCreate, db: Session = Depends(get_db)
         )
 
 
-@router.post("/suspend-or-activate/", status_code=status.HTTP_200_OK)
-def update_agent_status(
-    agent_mobile: str,
-    active_flag: int,
-    remarks: str,
+@router.post("/suspend-or-activate/", response_model=SuspendOrActiveResponse)
+async def update_agent_status(
+    update_request: SuspendOrActiveRequest,
     db: Session = Depends(get_db)
 ):
     """
     API to activate or suspend an agent.
     """
     try:
-        # Call the service function to handle status update
-        result = suspend_or_activate_agent(db, agent_mobile, active_flag, remarks)
-        return result
+        # Call the function to update agent status
+        result = suspend_or_activate_agent(
+            db, 
+            **update_request.dict()
+        )
+        
+        # FastAPI will automatically serialize the returned dict
+        return result["agent"]  # Returning only the 'agent' portion for the response model
+
     except HTTPException as http_exc:
-        # Handle HTTP-specific exceptions
         raise http_exc
     except Exception as e:
-        # Handle unexpected exceptions
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while updating agent status: {str(e)}"
         )
 
 
-@router.post("/verifyagent/")
-async def verify_agent(agent_mobile: str, verification_status: str, db: Session = Depends(get_db)):
-    """
-    Verify the agent by mobile and update the verification status and active flag.
-    If the status is 'Verified', the active flag is set to 1.
-    """
-    # Step 1: Call the service to verify the agent
-    result = verify_agent_service(db, agent_mobile, verification_status)
 
-    # Step 2: If no agent is found, return an error
-    if "message" in result and result["message"] == "No agents found":
-        raise HTTPException(status_code=404, detail="No agents found")
+@router.post("/verify-agent", response_model=VerifyStatusResponse)
+async def update_agent_status(
+    update_status: VerifyStatusRequest,
+    db: Session = Depends(get_db)
+):
+    try:
+        updated_agent = verify_agent_service(
+            db, 
+            update_status.agent_email,
+            update_status.verification_status
+        )
+        return updated_agent  
 
-    # Step 3: Return the updated agent response
-    return result
+    except HTTPException as http_exc:
+        raise http_exc
 
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred: {str(e)}"
+        )
 
 @router.get("/{agent_email}/profile", response_model=dict)
 def get_agent_profile_endpoint(agent_email: str, db: Session = Depends(get_db)):
@@ -116,42 +122,51 @@ def get_all_agents_profiles_endpoint(db: Session = Depends(get_db)):
 
 
 # Update agent by ID
-@router.put("/{agent_id}/updateagent", response_model=AgentUpdateResponse, status_code=status.HTTP_200_OK)
-async def edit_agent(agent_id: int, agent: AgentUpdate, db: Session = Depends(get_db)):
+@router.put("/updateagent", response_model=AgentUpdateResponse, status_code=status.HTTP_200_OK)
+async def update_agent(agent_data: AgentUpdate, db: Session = Depends(get_db)):
     """
-    Update the details of an existing agent identified by their agent ID.
-    Fields are updated only if provided in the request body.
+    Route for updating an agent's details using the request body.
     """
-    # Step 1: Check if any fields are provided for update
-    if not any(value is not None for value in agent.dict(exclude_unset=True).values()):
-        raise HTTPException(status_code=400, detail="No fields to update")
+    if not agent_data.agent_email:
+        raise HTTPException(status_code=400, detail="Agent email is required for update.")
 
-    # Step 2: Check if the agent exists
-    existing_agent = db.query(Agent).filter(Agent.agent_id == agent_id).first()
-    if not existing_agent:
-        raise HTTPException(status_code=404, detail="Agent ID not found")
+    agent_data_dict = agent_data.dict()
 
-    # Step 3: Call the update_agent function to update agent data
-    updated_agent = update_agent(db, agent_id, agent.dict(exclude_unset=True))
+    updated_agent = update_agent_service(db, agent_data_dict)
 
-    # Step 4: Return the updated agent response
+    if "message" in updated_agent:
+        raise HTTPException(status_code=400, detail=updated_agent["message"])
+
     return updated_agent
 
 
+
+
+
+
 # Delete agent by ID
-@router.delete("/{agent_id}/deleteagent", status_code=status.HTTP_200_OK)
-async def delete_agent(agent_id: int, db: Session = Depends(get_db)):
+@router.delete("/soft-delete", response_model=DeleteResponse)
+def soft_delete_agent_endpoint(delete_request: DeleteRequest, db: Session = Depends(get_db)):
     """
-    Soft delete an agent identified by their agent ID. 
-    The agent is marked as deleted but the record is not removed from the database.
+    Endpoint to soft delete a agent based on their email.
     """
-    agent = get_agent(db, agent_id)
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
-
-    if agent.deleted:
-        raise HTTPException(status_code=400, detail="Agent already marked as deleted")
-
-    # Proceed with soft delete if agent exists and isn't deleted yet
-    soft_delete_agent(db, agent_id)
-    return {"detail": f"Agent {agent.agent_name} (ID: {agent.agent_id}) marked as deleted successfully"}
+    try:
+        # Extract email from the request body
+        agent_email = delete_request.agent_email
+        
+        # Call the service layer for soft deletion
+        deleted_agent = soft_delete_agent_service(db, agent_email)
+        
+        # Ensure the response model fields match exactly
+        return DeleteResponse(
+            agent_id=deleted_agent.agent_id,
+            agent_name=deleted_agent.agent_name,  # Ensure this is included
+            agent_email=deleted_agent.agent_email
+        )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while soft deleting the agent: {str(e)}"
+        )

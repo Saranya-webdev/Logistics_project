@@ -1,25 +1,26 @@
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from app.models.thisaiprofiles import Associate, AssociatesCredential
-from app.utils import check_existing_by_email, process_credentials
-import logging
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
+from app.models.thisaiprofiles import Associate
+from app.models.enums import VerificationStatus
+from app.utils import check_existing_by_email
+from app.crud.thisaiprofiles import create_associates_crud, update_associates_crud, suspend_or_activate_associates_crud, verify_associate_crud, soft_delete_associate_crud,get_associates_profile_crud,get_associates_profiles_list_crud
+import logging
 
 logger = logging.getLogger(__name__)
 
 def create_associates_service(db: Session, associates_data: dict) -> dict:
     """
-    Business logic for creating a associates.
+    Business logic for creating an associate.
     """
     try:
-        # Log validation process
-        logger.info("Validating if the associates already exists...")
+        logger.info("Validating if the associate already exists...")
 
-        # Check if associates already exists using email
+        # Check if associate already exists using email
         if check_existing_by_email(db, Associate, "associates_email", associates_data["associates_email"]):
-            return {"message": "associates already exists"}
+            return {"message": "Associate already exists"}  # Changed to 'associates_email'
 
-        # Ensure all required fields are present (remove remarks from here)
+        # Ensure all required fields are present
         required_fields = [
             "associates_name", "associates_mobile", "associates_email", "associates_role"
         ]
@@ -27,275 +28,167 @@ def create_associates_service(db: Session, associates_data: dict) -> dict:
         missing_fields = [field for field in required_fields if field not in associates_data]
 
         if missing_fields:
-            return {"message": f"Missing required fields: {', '.join(missing_fields)}"}
+            raise HTTPException(status_code=400, detail=f"Missing required fields: {', '.join(missing_fields)}")
 
-        # Set default values
+        # Set default values for any missing fields
         associates_data["active_flag"] = 0  # Default active_flag to 0
 
+        logger.info("Calling CRUD to create the new associate...")
+        # Call CRUD to create associate
+        new_associate = create_associates_crud(db, associates_data)
 
-        logger.info("Creating new associates...")
-        # Create the new associates
-        new_associates = Associate(**associates_data)
-        db.add(new_associates)
-        db.commit()
-        db.refresh(new_associates)
-
-        # Return the created associates details
+        # If associate is created, return success message
         return {
-            "message": "associates created successfully",
-            "associates_id": new_associates.associates_id,
-            "associates_name": new_associates.associates_name,
-            "associates_mobile": new_associates.associates_mobile,
-            "associates_email": new_associates.associates_email,
-            "associates_role": new_associates.associates_role,
-            **{key: getattr(new_associates, key) for key in associates_data.keys()},
+            "message": "Associate created successfully",
+            "associates_id": new_associate.associates_id,
+            "associates_name": new_associate.associates_name,
+            "associates_mobile": new_associate.associates_mobile,
+            "associates_email": new_associate.associates_email,
+            "associates_role": new_associate.associates_role,
+            "verification_status": new_associate.verification_status,
+            "active_flag": new_associate.active_flag
         }
-
-    except IntegrityError as e:
-        logger.error(f"IntegrityError: {str(e)}")
-        db.rollback()
-        return {"message": "Database error occurred. Please check input data."}
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
-        db.rollback()
-        return {"message": f"Error creating associates: {str(e)}"}
+        raise HTTPException(status_code=500, detail=f"Error creating associate: {str(e)}")
 
-def create_associate_credential_service(db: Session, credentials_data: dict) -> dict:
+
+def update_associates_service(db: Session, associates_email: str, associates_data: dict) -> dict:
+    """Business logic for updating an associate's details based on associates email."""
     try:
-        # Log received data to verify correctness
-        logger.info(f"Received credentials data: {credentials_data}")
+        # Step 1: Check if an associate exists based on email
+        existing_associates = check_existing_by_email(db, Associate, "associates_email", associates_email)
         
-        # Ensure that the credentials data is correct
-        if not credentials_data.get("email_id") or not credentials_data.get("password"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Both email_id and password are required."
-            )
+        if not existing_associates:
+            return {"message": "No associate found with the given email."}
 
-        # Check if associate exists in the database
-        associate = db.query(Associate).filter(Associate.associates_email == credentials_data["email_id"]).first()
+        # Call the CRUD function to update the associate in the database
+        updated_associate = update_associates_crud(db, associates_email, associates_data)
 
-        if not associate:
-            logger.error(f"Associate not found for email: {credentials_data['email_id']}")
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Associate not found with the provided email."
-            )
+        if not updated_associate:
+            return {"message": "Failed to update associate."}
 
-        # Now proceed with creating associate credential
-        new_credential = AssociatesCredential(
-            email_id=credentials_data["email_id"],
-            password=credentials_data["password"],  # Ensure password is hashed
-            associates_id=associate.associates_id
-        )
-
-        db.add(new_credential)
-        db.commit()
-        db.refresh(new_credential)
-
-        logger.info(f"Created associate credential with ID: {new_credential.associates_credential_id}")
-
-        # Return the successful creation response
+        # Return the updated associate details
         return {
-            "message": "Associate credential created successfully.",
-            "associates_credential": {
-                "associates_credential_id": new_credential.associates_credential_id,
-                "email_id": new_credential.email_id,
-                "associates_id": new_credential.associates_id
-            }
+            "associates_id": updated_associate.associates_id,
+            "associates_name": updated_associate.associates_name,
+            "associates_email": updated_associate.associates_email,
+            "associates_mobile": updated_associate.associates_mobile,
+            "associates_role": updated_associate.associates_role,
+            "active_flag": updated_associate.active_flag,
+            "remarks": updated_associate.remarks,
+            "verification_status": updated_associate.verification_status
         }
 
-    except SQLAlchemyError as e:
-        db.rollback()
-        logger.error(f"SQLAlchemy error occurred: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database error occurred while creating associate credential."
-        )
     except Exception as e:
-        db.rollback()
-        logger.error(f"Unexpected error: {str(e)}")
+        return {"message": f"Error updating associate: {str(e)}"}
+
+
+def suspend_or_activate_associates_service(db: Session, associates_email: str, active_flag: int, remarks: str) -> dict:
+    """
+    Suspend or activate an associate based on the active_flag input.
+    """
+    # Validate input for active_flag to ensure it's 1 or 2
+    if active_flag not in [1, 2]:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unexpected error occurred while creating associate credential."
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="active_flag must be 1 (active) or 2 (suspend)"
         )
 
-
-
-
-    
-
-def update_associates_service(db: Session, associates_id: int, associates_data: dict) -> dict:
-    """Business logic for updating an associate's details based on associates ID."""
     try:
-        # Step 1: Check if the associate exists based on associates_id
-        existing_associates = db.query(Associate).filter(Associate.associates_id == associates_id).first()
-        if not existing_associates:
-            return {"message": "No associates found"}  # Return message if no associate is found
+        # Call the CRUD layer to perform the database operation
+        updated_associates = suspend_or_activate_associates_crud(db, associates_email, active_flag, remarks)
 
-        # Step 2: Update associate details with the provided data
-        for field, value in associates_data.items():
-            if hasattr(existing_associates, field) and value is not None:
-                setattr(existing_associates, field, value)
-
-        # Commit changes to the database
-        db.commit()
-        db.refresh(existing_associates)
-
-        # Return the updated associate details (including verification_status)
+        # Return response in the expected format
         return {
-            "associates_id": existing_associates.associates_id,
-            "associates_name": existing_associates.associates_name,
-            "associates_email": existing_associates.associates_email,
-            "associates_mobile": existing_associates.associates_mobile,
-            "associates_role": existing_associates.associates_role,
-            "active_flag": existing_associates.active_flag,
-            "remarks": existing_associates.remarks,
-            "verification_status": existing_associates.verification_status  # Make sure this is included
-        }
-
-    except IntegrityError as e:
-        db.rollback()
-        return {"message": f"Database error: {str(e)}"}
-    except Exception as e:
-        db.rollback()
-        return {"message": f"Error updating associates: {str(e)}"}
-
-
-
-def suspend_or_activate_associates(db: Session, associates_mobile: str, active_flag: int, remarks: str) -> dict:
-    """
-    Suspend or activate a associates based on the active_flag input.
-
-    Args:
-        db (Session): Database session.
-        associates_mobile (str): Mobile number of the associates.
-        active_flag (int): 1 for activate, 2 for suspend.
-        remarks (str): Remarks or notes for the action.
-
-    Returns:
-        dict: Updated associates details or error message.
-    """
-    from app.crud.thisaiprofiles import get_associates_by_mobile, update_associates_status
-    try:
-        # Fetch the associates by mobile
-        existing_associates = get_associates_by_mobile(db, associates_mobile)
-        if not existing_associates:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No associates found with the provided mobile number."
-            )
-
-        # Update the associates's active_flag and remarks
-        update_associates_status(db, existing_associates, active_flag, remarks)
-        db.refresh(existing_associates)
-
-        # Return the updated associates details
-        return {
-            'message': 'associates status updated successfully.',
-            "associates": {
-                "associates_id": existing_associates.associates_id,
-                "associates_name": existing_associates.associates_name,
-                "associates_email": existing_associates.associates_email,
-                "associates_mobile": existing_associates.associates_mobile,
-                "associates_role": existing_associates.associates_role,
-                "active_flag": active_flag,
-                "remarks": remarks
-            }
+            "associates_id": updated_associates.associates_id,
+            "associates_name": updated_associates.associates_name,
+            "associates_email": updated_associates.associates_email,
+            "associates_mobile": updated_associates.associates_mobile,
+            "associates_role": updated_associates.associates_role.value,  # Enum serialized as string
+            "active_flag": updated_associates.active_flag,
+            "verification_status": updated_associates.verification_status,
+            "remarks": updated_associates.remarks
         }
 
     except HTTPException as http_exc:
         # Re-raise HTTP exceptions
         raise http_exc
     except Exception as e:
-        # Rollback the transaction on error
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating associates status: {str(e)}"
+            detail=f"Error updating associate status: {str(e)}"
         )
 
-def verify_associates_service(db: Session, associates_mobile: str, verification_status: str) -> dict:
+    
+
+
+def verify_associate_service(db: Session, associates_email: str, verification_status: str) -> dict:
     """
-    Verify the associates and update their verification status and active flag.
-
-    Args:
-        db (Session): Database session.
-        associates_mobile (str): Mobile number of the associate.
-        verification_status (str): Verification status ('Verified' or 'Not Verified').
-
-    Returns:
-        dict: Updated associate details or error message.
+    Service method to verify the associate and update their verification status and active flag.
     """
     try:
-        # Step 1: Retrieve the associate based on the mobile number
-        existing_associates = db.query(Associate).filter(Associate.associates_mobile == associates_mobile).first()
+        # Ensure verification_status is treated as a string
+        verification_status_value = verification_status if isinstance(verification_status, str) else verification_status.value
 
-        if not existing_associates:
-            # Step 2: Return message if the associate is not found
+        # Now compare verification_status with Enum's value
+        if verification_status_value.lower() == VerificationStatus.verified.value:
+            active_flag = 1
+        else:
+            active_flag = 0
+
+        # Call the CRUD function to update the associate's status
+        updated_associate = verify_associate_crud(db, associates_email, verification_status, active_flag)
+
+        if not updated_associate:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="No associate found with the provided mobile number."
+                detail="No associate found with the provided email."
             )
 
-        # Step 3: Update verification status and active flag based on the verification status
-        if verification_status.lower() == "verified":
-            existing_associates.verification_status = "Verified"
-            existing_associates.active_flag = 1  # Set active flag to 1 if verified
-        else:
-            existing_associates.verification_status = verification_status
-            # Optionally, you can set active_flag to 0 if verification status is not "Verified"
-            existing_associates.active_flag = 0
-
-        # Commit the changes to the database
-        db.commit()
-        db.refresh(existing_associates)
-
-        # Step 4: Return the updated associate details
+        # Return the response with correct structure
         return {
-            "message": "Associate verification status updated successfully.",
-            "associate": {
-                "associates_id": existing_associates.associates_id,
-                "associates_name": existing_associates.associates_name,
-                "associates_email": existing_associates.associates_email,
-                "associates_mobile": existing_associates.associates_mobile,
-                "verification_status": existing_associates.verification_status,
-                "active_flag": existing_associates.active_flag,
-            },
-        }
+
+                "associates_id": updated_associate.associates_id,
+                "associates_name": updated_associate.associates_name,
+                "associates_email": updated_associate.associates_email,
+                "associates_mobile": updated_associate.associates_mobile,
+                "verification_status": updated_associate.verification_status.value,  # Convert Enum to string
+                "active_flag": updated_associate.active_flag,
+                "associates_role": updated_associate.associates_role.value,  # Convert Enum to string
+                "remarks": updated_associate.remarks,
+            }
+
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
-        # Rollback the transaction in case of an unexpected error
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error verifying associate: {str(e)}"
         )
 
-    
 
-def get_associates_profile(db: Session, associates_mobile: str) -> dict:
-    """Retrieve the profile of an associate based on their mobile number."""
-    from app.crud.thisaiprofiles import get_associates_by_mobile
+def get_associates_profile_service(db: Session, associates_email: str) -> dict:
+    """Business logic to retrieve an associate's profile by email."""
     
-    # Retrieve the associate by mobile
-    associates = get_associates_by_mobile(db, associates_mobile)
+    # Fetch the associate record from CRUD
+    associate = get_associates_profile_crud(db, associates_email)
     
-    # Handle case when associates is None
-    if associates is None:
+    if associate is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Associate with mobile number {associates_mobile} not found"
+            detail=f"Associate with email {associates_email} not found"
         )
     
-    # Return the associate profile details if found
+    # Construct response dictionary
     return {
-        "associates_id": associates.associates_id,
-        "associates_name": associates.associates_name,
-        "associates_email": associates.associates_email,
-        "associates_mobile": associates.associates_mobile,
-        "associates_role": associates.associates_role,
-        "active_flag": associates.active_flag,
-        "remarks": associates.remarks
+        "associates_id": associate.associates_id,
+        "associates_name": associate.associates_name,
+        "associates_email": associate.associates_email,
+        "associates_mobile": associate.associates_mobile,
+        "associates_role": associate.associates_role.value,  # Ensure Enum to string conversion
+        "active_flag": associate.active_flag,
+        "remarks": associate.remarks
     }
 
 
@@ -303,7 +196,13 @@ def get_associatess_profile_list(db: Session) -> list:
     """Retrieve a list of all associates profiles."""
     try:
         # Get the list of all associatess from the database without filters
-        associatess = db.query(Associate).all()  # This will retrieve all associatess
+        associates = get_associates_profiles_list_crud(db)  # This will retrieve all associatess
+
+        if not associates:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No associates found."
+            )
         
         # Map the associatess to a list of dictionaries (profiles)
         associates_profiles = [
@@ -316,7 +215,7 @@ def get_associatess_profile_list(db: Session) -> list:
                 "active_flag": associates.active_flag,
                 "remarks": associates.remarks
             }
-            for associates in associatess
+            for associates in associates
         ]
         return associates_profiles
     except Exception as e:
@@ -326,15 +225,19 @@ def get_associatess_profile_list(db: Session) -> list:
         )
 
 
-def soft_delete_associates_service(db: Session, associates_id: int):
-    """Service layer function to soft delete a associates."""
-    from app.crud.thisaiprofiles import soft_delete_associates_crud
+def soft_delete_associate_service(db: Session, associates_email: str) -> dict:
+    """Service layer function to soft delete a associate."""
     try:
-        # Call the CRUD function to soft delete the associates
-        deleted_associates = soft_delete_associates_crud(db, associates_id)
-        return deleted_associates
+        # Call the CRUD function to soft delete the associate
+        deleted_associate = soft_delete_associate_crud(db, associates_email)
+        
+        # Return the associate object directly
+        return deleted_associate
     except Exception as e:
+        # Handle and raise any errors that occur during the process
         raise HTTPException(
             status_code=500,
-            detail=f"An error occurred while trying to soft delete the associates: {str(e)}"
+            detail=f"An error occurred while trying to soft delete the associate: {str(e)}"
         )
+
+

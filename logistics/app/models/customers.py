@@ -7,7 +7,7 @@ from app.models.quotations import Quotations
 from app.models.enums import Type, Category, VerificationStatus
 
 
-# Your Customer model
+#  Customer model
 class Customer(Base):
     __tablename__ = 'customer'
     __table_args__ = (
@@ -64,7 +64,7 @@ class CustomerBusiness(Base):
     __tablename__ = 'customer_business' 
     __table_args__ = {'extend_existing': True} 
 
-    business_id = Column(Integer, primary_key=True)
+    business_id = Column(Integer, primary_key=True, autoincrement= True)
     tax_id = Column(String(255), nullable=True)
     license_number = Column(String(255), nullable=True)
     designation = Column(String(255), nullable=True)
@@ -72,7 +72,6 @@ class CustomerBusiness(Base):
     customer_id = Column(Integer, ForeignKey('customer.customer_id'))
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    is_active = Column(Boolean, default=True, comment="Indicates if the customer is active or not")
 
     customer = relationship("Customer", back_populates="customer_business")
 

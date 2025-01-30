@@ -1,6 +1,6 @@
 from pydantic import BaseModel, root_validator, Field, validator
 from typing import Optional, List
-from app.models.enums import Category
+from app.models.enums import Category, VerificationStatus
 from app.schemas.bookings import BookingSummary
 
 class Agent(BaseModel):
@@ -16,7 +16,7 @@ class Agent(BaseModel):
     agent_category: Category
     agent_businessname: Optional[str] = None
     tax_id: Optional[str] = None
-    verification_status: str
+    verification_status: VerificationStatus
     active_flag: int
 
 class AgentCreate(BaseModel):
@@ -70,7 +70,12 @@ class AgentUpdateResponse(BaseModel):
     agent_businessname: Optional[str] = None
     tax_id: Optional[str] = None
     verification_status: str
-    active_flag: Optional[int] = None       
+    active_flag: Optional[int] = None  
+
+    class Config:
+        from_attributes = True
+  
+       
 
 
 class AgentResponse(BaseModel):
@@ -113,3 +118,54 @@ class AgentBookingListResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class SuspendOrActiveRequest(BaseModel):
+    agent_email: str
+    active_flag: int
+    remarks: str
+
+    class Config:
+        from_attributes = True
+
+class SuspendOrActiveResponse(BaseModel):
+    agent_id: int
+    agent_name: str
+    agent_email: str
+    agent_mobile: str
+    verification_status: Optional[VerificationStatus] = None
+    remarks: Optional[str] = None
+    active_flag: int
+
+    class Config:
+        from_attributes = True
+
+
+class VerifyStatusRequest(BaseModel):
+    agent_email: str
+    verification_status: VerificationStatus
+
+class VerifyStatusResponse(BaseModel):
+    agent_id: int
+    agent_name: str
+    agent_email: str
+    agent_mobile: str
+    verification_status: Optional[VerificationStatus] = None
+    remarks: Optional[str] = None
+    active_flag: int
+
+    class Config:
+        from_attributes = True
+
+
+class DeleteRequest(BaseModel):
+    agent_email: str
+    
+class DeleteResponse(BaseModel):
+    agent_id: int
+    agent_name: str
+    agent_email: str
+
+
+    class Config:
+        from_attributes = True           

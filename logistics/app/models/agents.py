@@ -36,7 +36,6 @@ class Agent(Base):
     # created_by = Column(Integer, ForeignKey("user.user_id"))
     # updated_by = Column(Integer, ForeignKey("user.user_id"))
 
-    is_active = Column(Boolean, default=True, comment="Indicates if the agent is active) or not")
     agent_credentials = relationship("AgentCredential", back_populates="agent", cascade="all, delete-orphan")    
 
     class Config:
@@ -55,7 +54,7 @@ class AgentCredential(Base):
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     # created_by = Column(Integer, ForeignKey("user.user_id"))
     # updated_by = Column(Integer, ForeignKey("user.user_id"))
-    is_active = Column(Boolean, default=True, comment="Indicates if the agent is active or not")
+    active_flag = Column(Integer, default=1)
 
     agent = relationship("Agent", back_populates="agent_credentials")
 

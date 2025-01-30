@@ -26,7 +26,6 @@ class AssociatesUpdate(BaseModel):
     associates_email: Optional[str] = None
     associates_mobile: Optional[str] = None
     associates_role: Optional[Role] = None
-    verification_status: Optional[VerificationStatus] = None
     remarks: Optional[str] = None
 
     class Config:
@@ -58,19 +57,50 @@ class AssociatesResponse(BaseModel):
         from_attributes = True
 
 
-class AssociatesCredentialCreate(BaseModel):
-    email_id: str
-    password: str
+class SuspendOrActiveRequest(BaseModel):
+    associates_email: str
+    active_flag: int
+    remarks: str
+
+class SuspendOrActiveResponse(BaseModel):
+    associates_id: int
+    associates_name: str
+    associates_email: str
+    associates_mobile: str
+    associates_role: str
+    verification_status: Optional[VerificationStatus] = None
+    remarks: Optional[str] = None
+    active_flag: int
 
     class Config:
-        # For Pydantic v2, `from_attributes` instead of `orm_mode`
         from_attributes = True
 
-class AssociatesCredentialResponse(BaseModel):
-    message: str
-    associates_credential: dict
+class VerifyStatusRequest(BaseModel):
+    associates_email: str
+    verification_status: VerificationStatus
+
+class VerifyStatusResponse(BaseModel):
+    associates_id: int
+    associates_name: str
+    associates_email: str
+    associates_mobile: str
+    associates_role: Role
+    verification_status: Optional[VerificationStatus] = None
+    remarks: Optional[str] = None
+    active_flag: int
 
     class Config:
-        # Adjusting for Pydantic v2; ensure the output structure
-        from_attributes = True
-      
+        from_attributes = True   
+
+
+class DeleteRequest(BaseModel):
+    associates_email: str
+    
+class DeleteResponse(BaseModel):
+    associates_id: int
+    associates_name: str
+    associates_email: str
+
+
+    class Config:
+        from_attributes = True  
