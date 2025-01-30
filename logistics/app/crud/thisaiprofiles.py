@@ -17,6 +17,7 @@ def log_error(message: str, status_code: int):
     logging.error(f"{message} - Status Code: {status_code}")
 
 
+# CRUD operations for create associate
 def create_associates_crud(db: Session, associates_data: dict) -> Associate:
     """Create a new associate in the database."""
     try:
@@ -37,6 +38,7 @@ def create_associates_crud(db: Session, associates_data: dict) -> Associate:
         raise HTTPException(status_code=500, detail="Error creating associate in database")
 
 
+# CRUD operations for update associate
 def update_associates_crud(db: Session, associates_email: str, associates_data: dict) -> Associate:
     """Update an associate's details based on associates email."""
     try:
@@ -61,6 +63,7 @@ def update_associates_crud(db: Session, associates_email: str, associates_data: 
         raise Exception(f"Error updating associate in CRUD: {str(e)}")
 
 
+# CRUD operations for get associate profile
 def get_associates_profile_crud(db: Session, associates_email: str) -> dict:
     """Call the service to retrieve a associates's profile based on mobile number."""
     try:
@@ -78,6 +81,8 @@ def get_associates_profile_crud(db: Session, associates_email: str) -> dict:
             detail=f"An error occurred while retrieving associates profile: {str(e)}"
         )
 
+
+# CRUD operations for get associate profile list
 def get_associates_profiles_list_crud(db: Session) -> list:
     """Retrieve a list of all associates profiles from the service layer."""
     try:
@@ -91,6 +96,7 @@ def get_associates_profiles_list_crud(db: Session) -> list:
         )
 
 
+# CRUD operations for suspend/active customer
 def suspend_or_activate_associates_crud(db: Session, associates_email: str, active_flag: int, remarks: str):
     """
     Suspend or activate an associate directly in the database.
@@ -120,6 +126,7 @@ def suspend_or_activate_associates_crud(db: Session, associates_email: str, acti
     return associate
 
 
+# CRUD operations for verify associate
 def verify_associate_crud(
     db: Session, associates_email: str, verification_status: str, active_flag: int
 ): 
@@ -150,22 +157,3 @@ def verify_associate_crud(
         raise Exception(f"Database error while updating associate verification: {str(e)}")
 
         
-
-def soft_delete_associate_crud(db: Session, associates_email: str):
-    """Soft delete the associate by setting the 'deleted' flag to True."""
-    associate = db.query(Associate).filter(Associate.associates_email == associates_email).first()
-    
-    if not associate:
-        # Return a custom exception if the associate is not found
-        raise HTTPException(status_code=404, detail="associate not found")
-    
-    # Set the deleted flag and mark the deletion time
-    associate.deleted = True
-    associate.deleted_at = datetime.utcnow()
-    
-    # Add and commit the changes to the database
-    db.add(associate)
-    db.commit()
-    
-    # Return the updated associate as confirmation
-    return associate

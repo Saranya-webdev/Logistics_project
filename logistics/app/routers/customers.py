@@ -5,9 +5,7 @@ from app.schemas.customers import (
     CustomerResponse, 
     CustomerUpdate, 
     CustomerUpdateResponse,
-    CustomerBookingListResponse, 
-    DeleteRequest,
-    DeleteResponse,
+    CustomerBookingListResponse,
     VerifyStatusRequest,
     VerifyStatusResponse,
     SuspendOrActiveRequest,
@@ -16,7 +14,7 @@ from app.schemas.customers import (
 from app.databases.mysqldb import get_db
 import logging
 
-from app.service.customers import create_customer_service, soft_delete_customer_service, suspend_or_activate_customer_service, verify_corporate_customer_service, get_customer_profile_service, get_customers_list_service, get_customer_with_booking_details_service,get_customer_with_booking_list_service, update_customer_service
+from app.service.customers import create_customer_service, suspend_or_activate_customer_service, verify_corporate_customer_service, get_customer_profile_service, get_customers_list_service, get_customer_with_booking_details_service,get_customer_with_booking_list_service, update_customer_service
 
 
 router = APIRouter() 
@@ -173,31 +171,3 @@ async def update_customer(customer_data: CustomerUpdate, db: Session = Depends(g
         raise HTTPException(status_code=400, detail=updated_customer["message"])
 
     return updated_customer
-
-
-
-@router.delete("/soft-delete", response_model=DeleteResponse)
-def soft_delete_customer_endpoint(delete_request: DeleteRequest, db: Session = Depends(get_db)):
-    """
-    Endpoint to soft delete an customer based on their email.
-    """
-    try:
-        # Extract email from the request body
-        customer_email = delete_request.customer_email
-        
-        # Call the service layer for soft deletion
-        deleted_customer = soft_delete_customer_service(db, customer_email)
-        
-        # Ensure the response model fields match exactly
-        return DeleteResponse(
-            customer_id=deleted_customer.customer_id,
-            customer_name=deleted_customer.customer_name,  # Ensure this is included
-            customer_email=deleted_customer.customer_email
-        )
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while soft deleting the customer: {str(e)}"
-        )

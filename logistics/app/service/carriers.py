@@ -4,7 +4,7 @@ from app.models.carriers import Carrier
 from app.utils import check_existing_by_email
 import logging
 from fastapi import HTTPException, status
-from app.crud.carriers import create_carrier_crud, update_carrier_crud, suspend_or_activate_carrier_crud, get_carrier_profile_crud, get_all_carriers_list_crud, soft_delete_carrier_crud
+from app.crud.carriers import create_carrier_crud, update_carrier_crud, suspend_or_activate_carrier_crud, get_carrier_profile_crud, get_all_carriers_list_crud
 
 logger = logging.getLogger(__name__)
 
@@ -231,18 +231,3 @@ def get_carriers_profile_list(db: Session) -> list:
             detail=f"Error retrieving carrier profiles: {str(e)}"
         )
 
-
-def soft_delete_carrier_service(db: Session, carrier_email: str):
-    """Service layer function to soft delete a carrier."""
-    try:
-        # Call the CRUD function to soft delete the carrier
-        deleted_carrier = soft_delete_carrier_crud(db, carrier_email)
-        
-        # Return the carrier object directly
-        return deleted_carrier
-    except Exception as e:
-        # Handle and raise any errors that occur during the process
-        raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while trying to soft delete the carrier: {str(e)}"
-        )

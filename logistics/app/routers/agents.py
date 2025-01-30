@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.schemas.agents import AgentCreate, AgentResponse, AgentUpdate, AgentUpdateResponse, SuspendOrActiveResponse, SuspendOrActiveRequest, DeleteRequest,DeleteResponse, VerifyStatusResponse, VerifyStatusRequest
+from app.schemas.agents import AgentCreate, AgentResponse, AgentUpdate, AgentUpdateResponse, SuspendOrActiveResponse, SuspendOrActiveRequest, VerifyStatusResponse, VerifyStatusRequest
 from app.databases.mysqldb import get_db
 import logging
-from app.service.agents import update_agent_service, verify_agent_service, suspend_or_activate_agent, get_agent_profile, get_all_agents_profile, create_agent_service, soft_delete_agent_service
+from app.service.agents import update_agent_service, verify_agent_service, suspend_or_activate_agent, get_agent_profile, get_all_agents_profile, create_agent_service
 
 router = APIRouter()
 
@@ -139,34 +139,3 @@ async def update_agent(agent_data: AgentUpdate, db: Session = Depends(get_db)):
 
     return updated_agent
 
-
-
-
-
-
-# Delete agent by ID
-@router.delete("/soft-delete", response_model=DeleteResponse)
-def soft_delete_agent_endpoint(delete_request: DeleteRequest, db: Session = Depends(get_db)):
-    """
-    Endpoint to soft delete a agent based on their email.
-    """
-    try:
-        # Extract email from the request body
-        agent_email = delete_request.agent_email
-        
-        # Call the service layer for soft deletion
-        deleted_agent = soft_delete_agent_service(db, agent_email)
-        
-        # Ensure the response model fields match exactly
-        return DeleteResponse(
-            agent_id=deleted_agent.agent_id,
-            agent_name=deleted_agent.agent_name,  # Ensure this is included
-            agent_email=deleted_agent.agent_email
-        )
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while soft deleting the agent: {str(e)}"
-        )

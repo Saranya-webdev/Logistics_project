@@ -19,7 +19,7 @@ def log_success(message: str):
 def log_error(message: str, status_code: int):
     logging.error(f"{message} - Status Code: {status_code}")
 
-
+# CRUD operation for create customer
 def create_customer_crud(db: Session, customer_data: dict, business_data: dict = None) -> tuple:
     """Create an individual or corporate customer, including business details if corporate."""
     try:
@@ -45,7 +45,7 @@ def create_customer_crud(db: Session, customer_data: dict, business_data: dict =
 
         # Initialize new_business as None
         new_business = None
-
+        print(f"business data in crud file: {business_data}")
         # If the customer is corporate, add business details
         if new_customer.customer_type == Type.corporate and business_data:
             print(f"inside corporate")
@@ -74,9 +74,7 @@ def create_customer_crud(db: Session, customer_data: dict, business_data: dict =
         raise Exception(f"Unexpected error: {str(e)}")
 
 
-
-
-
+# CRUD operation for get customer profile
 def get_customer_profile_crud(db: Session, customer_email: str):
     """Retrieve a customer's profile from the Customer table by their customer_email."""
     try:
@@ -101,12 +99,12 @@ def get_customer_profile_crud(db: Session, customer_email: str):
         )
 
 
-
+# CRUD operation for get customer profile list
 def get_customer_profile_list_crud(db: Session) -> list:
     """Retrieve all customers."""
     try:
         # Query the Customer table to fetch all customer profiles
-        customers = db.query(Customer).all()  # Add parentheses to execute the query
+        customers = db.query(Customer).all()
 
         # Return the customer profiles (empty list if no customers)
         return customers
@@ -118,7 +116,8 @@ def get_customer_profile_list_crud(db: Session) -> list:
             detail=f"Error retrieving customer profile: {str(e)}"
         )
 
-    
+
+# CRUD operation for get customer with booking details
 def get_customer_with_booking_details_crud(db: Session, customer_id: int, booking_id: int):
     """Fetch a specific booking and its related items for a given customer."""
     return db.query(Bookings).filter(
@@ -127,6 +126,7 @@ def get_customer_with_booking_details_crud(db: Session, customer_id: int, bookin
     ).first()
 
 
+# CRUD operation for get customer's booking list
 def get_customer_with_booking_list_crud(db: Session, customer_id: int) -> list:
     bookings = db.query(Bookings).filter(Bookings.customer_id == customer_id).all()
     if not bookings:
@@ -134,9 +134,9 @@ def get_customer_with_booking_list_crud(db: Session, customer_id: int) -> list:
     return bookings
 
 
+# CRUD operation for update customer
 def update_customer_crud(db: Session, customer_email: str, customer_data: dict):
     """CRUD function to update the customer details in the database."""
-
     try:
         # Retrieve the customer from the database
         customer = db.query(Customer).filter(Customer.customer_email == customer_email).first()
@@ -160,9 +160,7 @@ def update_customer_crud(db: Session, customer_email: str, customer_data: dict):
         return None
 
 
-
-
-
+# CRUD operation for verify corporate customer
 def verify_corporate_customer_crud(db: Session, customer: Customer, active_flag: int, verification_status: str) -> Customer:
     """Update customer's verification status and active flag directly."""
     try:
@@ -179,30 +177,10 @@ def verify_corporate_customer_crud(db: Session, customer: Customer, active_flag:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error updating customer verification: {str(e)}")
 
 
-def soft_delete_customer_crud(db: Session, customer_email: str):
-    """Soft delete the customer by setting the 'deleted' flag to True."""
-    customer = db.query(Customer).filter(Customer.customer_email == customer_email).first()
-    
-    if not customer:
-        # Return a custom exception if the customer is not found
-        raise HTTPException(status_code=404, detail="customer not found")
-    
-    # Set the deleted flag and mark the deletion time
-    customer.deleted = True
-    customer.deleted_at = datetime.utcnow()
-    
-    # Add and commit the changes to the database
-    db.add(customer)
-    db.commit()
-    
-    # Return the updated customer as confirmation
-    return customer
-
-
-
+# CRUD operation for suspend/active customer
 def suspend_or_active_customer_crud(
     db: Session, customer_email: str, active_flag: int, remarks: str
-) -> Customer:
+):
     """Suspend or activate a customer directly."""
     # Retrieve the customer by email
     customer = db.query(Customer).filter(Customer.customer_email == customer_email).first()
@@ -219,7 +197,7 @@ def suspend_or_active_customer_crud(
     return customer
 
 
-# # Additional functions for populating categories and types
+# Additional functions for populating categories and types
 def populate_categories(db: Session):
     """Populate customer categories."""
     categories = [Category.tier_1, Category.tier_2, Category.tier_3]

@@ -23,8 +23,6 @@ class Carrier(Base):
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     active_flag = Column(Integer, default=1)
-    deleted = Column(Boolean, default=False)
-    deleted_at = Column(DateTime, nullable=True)
     # created_by = Column(Integer, ForeignKey("user.user_id"))
     # updated_by = Column(Integer, ForeignKey("user.user_id"))
 

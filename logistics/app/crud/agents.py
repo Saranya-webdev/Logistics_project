@@ -17,7 +17,7 @@ def log_success(message: str):
 def log_error(message: str, status_code: int):
     logging.error(f"{message} - Status Code: {status_code}")
 
-# CRUD operations for Agent
+# CRUD operations for create Agent
 def create_agent_crud(db: Session, agent_data: dict) -> Agent:
     """Create a new agent in the database."""
     # Create an Agent object using the data passed in
@@ -27,9 +27,10 @@ def create_agent_crud(db: Session, agent_data: dict) -> Agent:
     db.add(new_agent)
     db.commit()
     db.refresh(new_agent)
-    
     return new_agent
 
+
+# CRUD operations for get Agent profile
 def get_agent_profile_crud(db: Session, agent_email: str):
     """
     Retrieve an agent from the database based on their email.
@@ -42,6 +43,7 @@ def get_agent_profile_crud(db: Session, agent_email: str):
         raise Exception(f"Database error while retrieving agent: {str(e)}")
 
 
+# CRUD operations for get all Agents
 def get_all_agents_crud(db: Session) -> list:
     """
     Retrieve all agents from the database.
@@ -53,6 +55,7 @@ def get_all_agents_crud(db: Session) -> list:
         raise Exception(f"Database error while retrieving all agents: {str(e)}")
 
 
+# CRUD operations for update agent
 def update_agent_crud(db: Session, agent: Agent, agent_data: dict) -> Agent:
     """Update an agent with new data based on agent email (excluding email modification)."""
     # Update the agent's fields using agent_data
@@ -62,11 +65,11 @@ def update_agent_crud(db: Session, agent: Agent, agent_data: dict) -> Agent:
 
     db.commit()
     db.refresh(agent)
-
     # Return the updated agent response
     return agent
 
 
+# CRUD operations for verify Agent
 def verify_agent_crud(db: Session, agent_email: str, verification_status: str, active_flag: int):
     """
     Update the verification status and active flag for the agent in the database.
@@ -92,6 +95,7 @@ def verify_agent_crud(db: Session, agent_email: str, verification_status: str, a
         raise Exception(f"Database error while updating agent verification: {str(e)}")
     
 
+# CRUD operations for suspend/active Agent
 def suspend_or_active_agent_crud(db: Session, agent_email: str, active_flag: int, remarks: str):
     """Suspend or activate agent in the database."""
     agent = db.query(Agent).filter(Agent.agent_email == agent_email).first()
@@ -106,32 +110,7 @@ def suspend_or_active_agent_crud(db: Session, agent_email: str, active_flag: int
     # Commit the changes to the database
     db.commit()
     db.refresh(agent)
-
     return agent
-
-def soft_delete_agent_crud(db: Session, agent_email: str):
-
-    """Soft delete the agent."""
-    try:
-        agent = db.query(Agent).filter(Agent.agent_email == agent_email).first()
-
-        # If the agent does not exist, return None
-        if not agent:
-            return None
-
-        # Mark the agent as deleted
-        agent.deleted = True
-        agent.deleted_at = datetime.utcnow()
-
-        # Save changes to the database
-        db.add(agent)
-        db.commit()
-        db.refresh(agent)
-
-        return agent
-    except Exception as e:
-        # Handle any database errors
-        raise Exception(f"Error soft deleting agent: {str(e)}")
 
 
 # Additional functions for populating categories and types

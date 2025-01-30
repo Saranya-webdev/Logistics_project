@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from app.models.thisaiprofiles import Associate
 from app.models.enums import VerificationStatus
 from app.utils import check_existing_by_email
-from app.crud.thisaiprofiles import create_associates_crud, update_associates_crud, suspend_or_activate_associates_crud, verify_associate_crud, soft_delete_associate_crud,get_associates_profile_crud,get_associates_profiles_list_crud
+from app.crud.thisaiprofiles import create_associates_crud, update_associates_crud, suspend_or_activate_associates_crud, verify_associate_crud,get_associates_profile_crud,get_associates_profiles_list_crud
 import logging
 
 logger = logging.getLogger(__name__)
@@ -223,21 +223,3 @@ def get_associatess_profile_list(db: Session) -> list:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while retrieving associates profiles: {str(e)}"
         )
-
-
-def soft_delete_associate_service(db: Session, associates_email: str) -> dict:
-    """Service layer function to soft delete a associate."""
-    try:
-        # Call the CRUD function to soft delete the associate
-        deleted_associate = soft_delete_associate_crud(db, associates_email)
-        
-        # Return the associate object directly
-        return deleted_associate
-    except Exception as e:
-        # Handle and raise any errors that occur during the process
-        raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while trying to soft delete the associate: {str(e)}"
-        )
-
-

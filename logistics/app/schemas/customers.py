@@ -68,8 +68,8 @@ class CustomerUpdate(BaseModel):
     customer_geolocation: Optional[str] = None
     customer_type: Optional[Type] = None
     customer_category: Optional[Category] = None
-    remarks: Optional[str] = None
-    verification_status: Optional[str] = None
+    # remarks: Optional[str] = None
+    # verification_status: Optional[str] = None
 
     # Business-related fields
     tax_id: Optional[str] = None
@@ -94,8 +94,13 @@ class CustomerUpdateResponse(BaseModel):
     customer_geolocation: str
     customer_type: Type
     customer_category: Category
-    verification_status: VerificationStatus
+    # verification_status: VerificationStatus
     # active_flag: Optional[int] = None
+    business_id: Optional[int] = None
+    tax_id: Optional[str] = None
+    license_number: Optional[str] = None
+    designation: Optional[str] = None
+    company_name: Optional[str] = None
 
 class CustomerResponse(BaseModel):
     customer_id: int
@@ -182,16 +187,4 @@ class VerifyStatusResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class DeleteRequest(BaseModel):
-    customer_email: str
-    
-class DeleteResponse(BaseModel):
-    customer_id: int
-    customer_name: str
-    customer_email: str
-
-
-    class Config:
-        from_attributes = True           
+     

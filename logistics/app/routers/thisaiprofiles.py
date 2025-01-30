@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.databases.mysqldb import get_db
 import logging
-from app.schemas.thisaiprofiles import AssociatesCreate, AssociatesResponse, AssociatesUpdateResponse, AssociatesUpdate,SuspendOrActiveRequest,SuspendOrActiveResponse, VerifyStatusRequest, VerifyStatusResponse, DeleteRequest, DeleteResponse
-from app.service.thisaiprofiles import create_associates_service, update_associates_service, suspend_or_activate_associates_service,verify_associate_service, soft_delete_associate_service, get_associates_profile_service, get_associatess_profile_list
+from app.schemas.thisaiprofiles import AssociatesCreate, AssociatesResponse, AssociatesUpdateResponse, AssociatesUpdate,SuspendOrActiveRequest,SuspendOrActiveResponse, VerifyStatusRequest, VerifyStatusResponse
+from app.service.thisaiprofiles import create_associates_service, update_associates_service, suspend_or_activate_associates_service,verify_associate_service, get_associates_profile_service, get_associatess_profile_list
 
 logger = logging.getLogger(__name__)
 
@@ -143,29 +143,3 @@ async def update_associate(associate_data: AssociatesUpdate, db: Session = Depen
 
     return updated_associate
     
-
-@router.delete("/soft-delete", response_model=DeleteResponse)
-def soft_delete_associate_endpoint(delete_request: DeleteRequest, db: Session = Depends(get_db)):
-    """
-    Endpoint to soft delete an associate based on their email.
-    """
-    try:
-        # Extract email from the request body
-        associates_email = delete_request.associates_email
-        
-        # Call the service layer for soft deletion
-        deleted_associate = soft_delete_associate_service(db, associates_email)
-        
-        # Ensure the response model fields match exactly
-        return DeleteResponse(
-            associates_id=deleted_associate.associates_id,
-            associates_name=deleted_associate.associates_name,  # Ensure this is included
-            associates_email=deleted_associate.associates_email
-        )
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while soft deleting the associate: {str(e)}"
-        )
