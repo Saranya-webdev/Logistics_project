@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.models.agents import Agent, Category
 from app.schemas.agents import AgentUpdateResponse
-from app.utils import log_and_raise_exception, populate_dynamic_entries, check_existing_by_email
+from app.utils import log_and_raise_exception, populate_dynamic_entries
 import logging
 from datetime import datetime
 from typing import Optional
@@ -18,148 +18,121 @@ def log_error(message: str, status_code: int):
     logging.error(f"{message} - Status Code: {status_code}")
 
 # CRUD operations for Agent
-def create_agent_crud(db: Session, agent_data: dict) -> dict:
-    """CRUD operation for creating an agent, calling business logic from create_agent_service."""
-    from app.service.agents import create_agent_service
+def create_agent_crud(db: Session, agent_data: dict) -> Agent:
+    """Create a new agent in the database."""
+    # Create an Agent object using the data passed in
+    new_agent = Agent(**agent_data)
+    
+    # Add the agent to the session and commit to the database
+    db.add(new_agent)
+    db.commit()
+    db.refresh(new_agent)
+    
+    return new_agent
 
-    logger.debug(f"Received agent data: {agent_data}")
-
+def get_agent_profile_crud(db: Session, agent_email: str):
+    """
+    Retrieve an agent from the database based on their email.
+    """
     try:
-        result = create_agent_service(db, agent_data)
-        
-        if isinstance(result, dict):
-            return result
-        else:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error creating agent")
-    except HTTPException as e:
-        logger.error(f"Error in agent creation: {e.detail}")
-        raise e
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error creating agent: {str(e)}")
-
-def get_agent_by_email(db: Session, agent_email: str):
-    """Retrieve an agent from the database based on their email."""
-    try:
-        agent = check_existing_by_email(db, Agent, "agent_email", agent_email)
-        if not agent:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+        # Query the agent based on their email
+        agent = db.query(Agent).filter(Agent.agent_email == agent_email).first()
         return agent
     except Exception as e:
-        log_and_raise_exception(f"Error retrieving agent by email {agent_email}: {str(e)}", 500)
+        raise Exception(f"Database error while retrieving agent: {str(e)}")
 
 
-def get_all_agents(db: Session) -> list:
-    """Call the service to retrieve the profiles of all agents."""
-    from app.service.agents import get_all_agents_profile
+def get_all_agents_crud(db: Session) -> list:
+    """
+    Retrieve all agents from the database.
+    """
     try:
-        # Attempt to fetch the agent profiles
-        return get_all_agents_profile(db)
-    except HTTPException as e:
-        # Raise HTTPException if there is a known error (like no agents found)
-        raise e
+        agents = db.query(Agent).all()
+        return agents
     except Exception as e:
-        # Handle any unexpected errors and raise an internal server error
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred: {str(e)}"
-        )        
+        raise Exception(f"Database error while retrieving all agents: {str(e)}")
 
-def get_agent_by_id(db: Session, agent_id: int) -> Agent:
-    """Retrieve an agent by their ID."""
-    return db.query(Agent).filter(Agent.agent_id == agent_id).first()
 
-def get_agent(db: Session, agent_id: int):
-    """Retrieve an agent by their ID."""
-    return db.query(Agent).filter(Agent.agent_id == agent_id).first()
-
-def update_agent(db: Session, agent_data: dict) -> dict:
-    """Update an agent with new data based on agent email."""
-    # Query for agent by email instead of agent_id
-    agent = db.query(Agent).filter(Agent.agent_email == agent_data["agent_email"]).first()
-
-    if agent:
-        # Exclude fields that shouldn't be updated (verification_status, category, notes)
-        fields_to_exclude = ["verification_status", "agent_category", "notes"]
-        filtered_data = {key: value for key, value in agent_data.items() if key not in fields_to_exclude}
-
-        # Update agent details with the filtered data
-        for key, value in filtered_data.items():
+def update_agent_crud(db: Session, agent: Agent, agent_data: dict) -> Agent:
+    """Update an agent with new data based on agent email (excluding email modification)."""
+    # Update the agent's fields using agent_data
+    for key, value in agent_data.items():
+        if hasattr(agent, key) and value is not None:
             setattr(agent, key, value)
 
+    db.commit()
+    db.refresh(agent)
+
+    # Return the updated agent response
+    return agent
+
+
+def verify_agent_crud(db: Session, agent_email: str, verification_status: str, active_flag: int):
+    """
+    Update the verification status and active flag for the agent in the database.
+    """
+    try:
+        # Retrieve the agent based on the email
+        existing_agent = db.query(Agent).filter(Agent.agent_email == agent_email).first()
+
+        if not existing_agent:
+            return None  # No agent found with the provided email
+
+        # Update the agent's verification status and active flag
+        existing_agent.verification_status = verification_status
+        existing_agent.active_flag = active_flag
+
+        # Commit the changes to the database
+        db.commit()
+        db.refresh(existing_agent)
+
+        return existing_agent
+    except Exception as e:
+        db.rollback()  # Roll back changes if there's an error
+        raise Exception(f"Database error while updating agent verification: {str(e)}")
+    
+
+def suspend_or_active_agent_crud(db: Session, agent_email: str, active_flag: int, remarks: str):
+    """Suspend or activate agent in the database."""
+    agent = db.query(Agent).filter(Agent.agent_email == agent_email).first()
+
+    if not agent:
+        return None
+
+    # Update the agent's status and remarks
+    agent.active_flag = active_flag
+    agent.remarks = remarks
+
+    # Commit the changes to the database
+    db.commit()
+    db.refresh(agent)
+
+    return agent
+
+def soft_delete_agent_crud(db: Session, agent_email: str):
+
+    """Soft delete the agent."""
+    try:
+        agent = db.query(Agent).filter(Agent.agent_email == agent_email).first()
+
+        # If the agent does not exist, return None
+        if not agent:
+            return None
+
+        # Mark the agent as deleted
+        agent.deleted = True
+        agent.deleted_at = datetime.utcnow()
+
+        # Save changes to the database
+        db.add(agent)
         db.commit()
         db.refresh(agent)
 
-        # Return the updated agent response
-        return {
-            "agent_id": agent.agent_id,
-            "agent_name": agent.agent_name,
-            "agent_email": agent.agent_email,
-            "agent_mobile": agent.agent_mobile,
-            "agent_address": agent.agent_address,
-            "agent_city": agent.agent_city,
-            "agent_state": agent.agent_state,
-            "agent_country": agent.agent_country,
-            "agent_pincode": agent.agent_pincode,
-            "agent_geolocation": agent.agent_geolocation,
-            "agent_businessname": agent.agent_businessname,
-            "tax_id": agent.tax_id,
-            "active_flag": agent.active_flag if agent.active_flag is not None else 0,
-        }
-
-    raise HTTPException(status_code=404, detail="No agents found")
-
-def update_agent_status(db: Session, agent: Agent, active_flag: int, remarks: Optional[str] = None) -> None:
-    """Update agent's active status and remarks."""
-    try:
-        agent.active = active_flag
-        if remarks is not None:
-            agent.remarks = remarks
-        db.commit()
+        return agent
     except Exception as e:
-        db.rollback()
-        log_and_raise_exception(f"Error updating agent status: {str(e)}", 500)
+        # Handle any database errors
+        raise Exception(f"Error soft deleting agent: {str(e)}")
 
-def update_agent_verification_status(db: Session, agent_email: str, agent_mobile: str, verification_status: str) -> None:
-    """Update agent's verification status and active flag in the database."""
-    try:
-        # Query for agent based on email and mobile
-        agent = db.query(Agent).filter(Agent.agent_email == agent_email, Agent.agent_mobile == agent_mobile).first()
-
-        if not agent:
-            raise Exception("Agent not found")  # Raise error if agent doesn't exist
-
-        # Update the verification status and active flag based on verification status
-        if verification_status.lower() == "verified":
-            agent.verification_status = verification_status
-            agent.active_flag = 1  # Set active flag to 1 if verified
-        else:
-            agent.verification_status = verification_status  # Update status only if not verified
-
-        db.commit()  # Commit changes to the database
-
-    except Exception as e:
-        db.rollback()
-        raise Exception(f"Error updating agent verification status: {str(e)}")
-
-def soft_delete_agent(db: Session, agent_id: int):
-    """Soft delete the agent."""
-    agent = db.query(Agent).filter(Agent.agent_id == agent_id).first()
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
-    
-    agent.deleted = True
-    agent.deleted_at = datetime.utcnow()
-    db.add(agent)
-    db.commit()
-    return agent
-
-def suspend_or_active_agent_crud(db: Session, agent_mobile: str, active_flag: int, remarks: str):
-    """Suspend or activate agent."""
-    from app.service.agents import suspend_or_activate_agent
-    
-    updated_agent = suspend_or_activate_agent(db, agent_mobile, active_flag, remarks)
-    return updated_agent
 
 # Additional functions for populating categories and types
 def populate_categories(db: Session):

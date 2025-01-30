@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from app.models.customers import Customer, Category, Type, CustomerBusiness
+from sqlalchemy.exc import IntegrityError
+from app.models.customers import Customer,CustomerBusiness
+from app.models.enums import  Category, Type
 from app.models.bookings import Bookings
-from app.schemas.customers import CustomerUpdateResponse
-from app.utils import log_and_raise_exception, populate_dynamic_entries, check_existing_by_email
-from app.service.customers import create_customer_service, get_all_customers_with_booking_list, get_customer_with_booking_details, verify_corporate_customer, suspend_or_activate_customer
+from app.utils import  populate_dynamic_entries
 import logging
 from datetime import datetime
 from typing import Optional
@@ -20,152 +20,206 @@ def log_error(message: str, status_code: int):
     logging.error(f"{message} - Status Code: {status_code}")
 
 
-# CRUD operations for Customer
-# CRUD operations for Customer
-def create_customer(db: Session, customer_data: dict) -> dict:
-    """CRUD operation for creating a customer, calling business logic from create_customer_service."""
-    logger.debug(f"Received customer data: {customer_data}")
-
+def create_customer_crud(db: Session, customer_data: dict, business_data: dict = None) -> tuple:
+    """Create an individual or corporate customer, including business details if corporate."""
     try:
-        result = create_customer_service(db, customer_data)
+        # Create the Customer record first
+        new_customer = Customer(
+            customer_name=customer_data["customer_name"],
+            customer_mobile=customer_data["customer_mobile"],
+            customer_email=customer_data["customer_email"],
+            customer_address=customer_data["customer_address"],
+            customer_city=customer_data["customer_city"],
+            customer_state=customer_data["customer_state"],
+            customer_country=customer_data["customer_country"],
+            customer_pincode=customer_data["customer_pincode"],
+            customer_geolocation=customer_data.get("customer_geolocation"),  # Optional field
+            customer_type=customer_data["customer_type"],  # Must be 'individual' or 'corporate'
+            customer_category=customer_data.get("customer_category")  # Optional field
+        )
 
-        if isinstance(result, dict):
-            return result
-        else:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error creating customer")
-    except HTTPException as e:
-        logger.error(f"Error in customer creation: {e.detail}")
-        raise e
+        db.add(new_customer)
+        db.commit()
+        db.refresh(new_customer)
+        print(f"new customer : {new_customer}")
+
+        # Initialize new_business as None
+        new_business = None
+
+        # If the customer is corporate, add business details
+        if new_customer.customer_type == Type.corporate and business_data:
+            print(f"inside corporate")
+            # Ensure all business fields are passed
+            required_fields = ["tax_id", "license_number", "designation", "company_name"]
+            if all(field in business_data for field in required_fields):
+                new_business = CustomerBusiness(
+                    customer_id=new_customer.customer_id,
+                    tax_id=business_data["tax_id"],
+                    license_number=business_data["license_number"],
+                    designation=business_data["designation"],
+                    company_name=business_data["company_name"]
+                )
+                db.add(new_business)
+                db.commit()
+                db.refresh(new_business)  # Refresh the business details
+                print(f"business details after commit and refresh: {new_business}")
+
+        return new_customer, new_business
+
+    except IntegrityError as e:
+        db.rollback()
+        raise Exception(f"Error creating customer: {str(e)}")
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error creating customer: {str(e)}")
+        db.rollback()
+        raise Exception(f"Unexpected error: {str(e)}")
 
 
 
-def get_customer_by_email(db: Session, customer_email: str):
-    """Retrieve a customer from the database based on their email."""
+
+
+def get_customer_profile_crud(db: Session, customer_email: str):
+    """Retrieve a customer's profile from the Customer table by their customer_email."""
     try:
-        customer = check_existing_by_email(db, Customer, "customer_email", customer_email)
+        # Query the Customer table to fetch the customer profile by customer_id
+        customer = db.query(Customer).filter(Customer.customer_email == customer_email).first()
+
+        # If the customer is not found, raise a 404 error
         if not customer:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Customer with ID {customer_email} not found"
+            )
+
+        # Return the customer profile
         return customer
+
     except Exception as e:
-        log_and_raise_exception(f"Error retrieving customer by email {customer_email}: {str(e)}", 500)
+        # Catch any other exceptions and raise a 500 error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving customer profile: {str(e)}"
+        )
 
 
-def get_customer_by_id(db: Session, customer_id: int) -> Customer:
-    """Retrieve a customer by their ID."""
-    return db.query(Customer).filter(Customer.customer_id == customer_id).first()
 
-
-def get_customer(db: Session, customer_id: int):
-    return db.query(Customer).filter(Customer.customer_id == customer_id).first()
-
-def fetch_all_customers_with_bookings(db: Session) -> list:
-    """
-    Wrapper function to call the service function that retrieves all customers with their booking list summaries.
-    """
-    return get_all_customers_with_booking_list(db)
-
-
-def get_customers_and_bookings(db: Session, customer_id: int):
-    """Retrieve customer and their bookings based on customer_id."""
+def get_customer_profile_list_crud(db: Session) -> list:
+    """Retrieve all customers."""
     try:
-        customer = db.query(Customer).filter(Customer.customer_id == customer_id).first()
-        if not customer:
-            raise HTTPException(status_code=404, detail="Customer not found")
+        # Query the Customer table to fetch all customer profiles
+        customers = db.query(Customer).all()  # Add parentheses to execute the query
 
-        bookings = db.query(Bookings).filter(Bookings.customer_id == customer_id).all()
+        # Return the customer profiles (empty list if no customers)
+        return customers
 
-        return customer, bookings
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching customer with bookings: {str(e)}")
+        # Catch any other exceptions and raise a 500 error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving customer profile: {str(e)}"
+        )
+
+    
+def get_customer_with_booking_details_crud(db: Session, customer_id: int, booking_id: int):
+    """Fetch a specific booking and its related items for a given customer."""
+    return db.query(Bookings).filter(
+        Bookings.customer_id == customer_id,
+        Bookings.booking_id == booking_id
+    ).first()
 
 
-def get_customer_booking_details(db: Session, customer_id: int, booking_id: int):
-    """CRUD layer function that calls the service layer to get booking details."""
-    return get_customer_with_booking_details(db, customer_id, booking_id)
+def get_customer_with_booking_list_crud(db: Session, customer_id: int) -> list:
+    bookings = db.query(Bookings).filter(Bookings.customer_id == customer_id).all()
+    if not bookings:
+        logging.warning(f"No bookings found for customer_id {customer_id}")
+    return bookings
 
 
-def update_customer(db: Session, customer_id: int, customer_data: dict):
-    """Update a customer with new data."""
-    customer = db.query(Customer).filter(Customer.customer_id == customer_id).first()
+def update_customer_crud(db: Session, customer_email: str, customer_data: dict):
+    """CRUD function to update the customer details in the database."""
 
-    if customer:
+    try:
+        # Retrieve the customer from the database
+        customer = db.query(Customer).filter(Customer.customer_email == customer_email).first()
+        if not customer:
+            return None
+
+        # Update the customer's details dynamically
         for key, value in customer_data.items():
             setattr(customer, key, value)
 
+        # Commit the transaction
+        db.commit()
+
+        # Return the updated customer object
+        db.refresh(customer)
+        return customer
+
+    except Exception as e:
+        db.rollback()  # Rollback in case of an error
+        logger.error(f"Error in updating customer in CRUD: {str(e)}")
+        return None
+
+
+
+
+
+def verify_corporate_customer_crud(db: Session, customer: Customer, active_flag: int, verification_status: str) -> Customer:
+    """Update customer's verification status and active flag directly."""
+    try:
+        # Update the customer directly
+        customer.active_flag = active_flag
+        customer.verification_status = verification_status
         db.commit()
         db.refresh(customer)
 
-        return CustomerUpdateResponse(
-            customer_id=customer.customer_id,
-            customer_name=customer.customer_name,
-            customer_email=customer.customer_email,
-            customer_mobile=customer.customer_mobile,
-            customer_address=customer.customer_address,
-            customer_city=customer.customer_city,
-            customer_state=customer.customer_state,
-            customer_country=customer.customer_country,
-            customer_pincode=customer.customer_pincode,
-            customer_geolocation=customer.customer_geolocation,
-            customer_type=customer.customer_type,
-            customer_category=customer.customer_category,
-            verification_status=customer.verification_status,
-            active_flag=customer.active_flag if customer.active_flag is not None else 0,
-        )
+        return customer
 
-    raise HTTPException(status_code=404, detail="Customer not found")
-
-
-def update_customer_status(db: Session, customer: Customer, active_flag: int, remarks: Optional[str] = None) -> None:
-    """Update customer's active status and remarks."""
-    try:
-        customer.active = active_flag
-        if remarks is not None:
-            customer.remarks = remarks
-        db.commit()
     except Exception as e:
-        db.rollback()
-        log_and_raise_exception(f"Error updating customer status: {str(e)}", 500)
+        db.rollback()  # Roll back changes if there's an error
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error updating customer verification: {str(e)}")
 
 
-def update_customer_verification_status(db: Session, customer: Customer, active_flag: int, verification_status: str) -> None:
-    """Update customer's verification status and active flag."""
-    try:
-        customer.active = active_flag
-        customer.status = verification_status
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        log_and_raise_exception(f"Error updating customer verification status: {str(e)}", 500)
-
-
-def verify_customer_in_crud(db: Session, customer_email: str, verification_status: str) -> dict:
-    """Verify corporate customer by email."""
-    return verify_corporate_customer(db, customer_email, verification_status)
-
-
-def soft_delete_customer(db: Session, customer_id: int):
-    """Soft delete the customer."""
-    customer = db.query(Customer).filter(Customer.customer_id == customer_id).first()
+def soft_delete_customer_crud(db: Session, customer_email: str):
+    """Soft delete the customer by setting the 'deleted' flag to True."""
+    customer = db.query(Customer).filter(Customer.customer_email == customer_email).first()
+    
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-
+        # Return a custom exception if the customer is not found
+        raise HTTPException(status_code=404, detail="customer not found")
+    
+    # Set the deleted flag and mark the deletion time
     customer.deleted = True
     customer.deleted_at = datetime.utcnow()
+    
+    # Add and commit the changes to the database
     db.add(customer)
     db.commit()
+    
+    # Return the updated customer as confirmation
     return customer
 
 
-def suspend_or_active_customer_crud(db: Session, customer_email: str, active_flag: int, remarks: str):
-    """Suspend or activate customer."""
-    updated_customer = suspend_or_activate_customer(db, customer_email, active_flag, remarks)
-    return updated_customer
+
+def suspend_or_active_customer_crud(
+    db: Session, customer_email: str, active_flag: int, remarks: str
+) -> Customer:
+    """Suspend or activate a customer directly."""
+    # Retrieve the customer by email
+    customer = db.query(Customer).filter(Customer.customer_email == customer_email).first()
+    
+    if not customer:
+        return None  # Return None if the customer is not found
+
+    # Update the customer's status and remarks
+    customer.active_flag = active_flag
+    customer.remarks = remarks
+    db.commit()
+    db.refresh(customer)
+    
+    return customer
 
 
-# Additional functions for populating categories and types
+# # Additional functions for populating categories and types
 def populate_categories(db: Session):
     """Populate customer categories."""
     categories = [Category.tier_1, Category.tier_2, Category.tier_3]
@@ -187,10 +241,5 @@ def populate_customer_types(db: Session):
         log_error(f"Error populating customer types: {str(e)}", 500)
         raise
 
-
-# Retrieve corporate customer details
-def get_corporate_customer_details(db: Session, customer_id: int) -> CustomerBusiness:
-    """Retrieve corporate customer business details."""
-    return db.query(CustomerBusiness).filter(CustomerBusiness.customer_id == customer_id).first()
 
 

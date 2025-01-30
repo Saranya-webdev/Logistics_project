@@ -116,25 +116,25 @@ def check_existing_by_email(db: Session, model, email_field: str, email: str):
 
 # ========== Agent Validation ==========
 # Initialize a password context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def hash_password(password: str) -> str:
-    """Hash the password securely."""
-    return pwd_context.hash(password)
+# def hash_password(password: str) -> str:
+#     """Hash the password securely."""
+#     return pwd_context.hash(password)
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify the hashed password against a plain text password."""
-    return pwd_context.verify(plain_password, hashed_password)
+# def verify_password(plain_password: str, hashed_password: str) -> bool:
+#     """Verify the hashed password against a plain text password."""
+#     return pwd_context.verify(plain_password, hashed_password)
 
-def process_credentials(agent_data: dict) -> dict:
-    """
-    Extract and process credentials from the agent data.
-    """
-    credential_fields = ["email_id", "password"]
-    credentials_data = {field: agent_data.pop(field, None) for field in credential_fields}
+# def process_credentials(agent_data: dict) -> dict:
+#     """
+#     Extract and process credentials from the agent data.
+#     """
+#     credential_fields = ["email_id", "password"]
+#     credentials_data = {field: agent_data.pop(field, None) for field in credential_fields}
 
-    # Hash the password if it exists
-    if credentials_data.get("password"):
-        credentials_data["password"] = hash_password(credentials_data["password"])
+#     # Hash the password if it exists
+#     if credentials_data.get("password"):
+#         credentials_data["password"] = hash_password(credentials_data["password"])
 
-    return credentials_data
+#     return credentials_data

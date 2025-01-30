@@ -1,18 +1,18 @@
+from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.models.customers import Customer, CustomerBusiness
 from app.models.bookings import Bookings
-from sqlalchemy.orm import Session
+from app.models.enums import VerificationStatus, Type
 from sqlalchemy.exc import IntegrityError
 from app.utils import check_existing_by_email
 import logging
+from app.crud.customers import create_customer_crud,soft_delete_customer_crud, suspend_or_active_customer_crud,verify_corporate_customer_crud, get_customer_profile_crud, get_customer_profile_list_crud, get_customer_with_booking_details_crud,get_customer_with_booking_list_crud, update_customer_crud
+
 
 logger = logging.getLogger(__name__)
 
 def create_customer_service(db: Session, customer_data: dict) -> dict:
     """Business logic for creating a customer."""
-    from app.crud.customers import create_customer  # Local import to avoid circular import
-    from app.models import Customer, CustomerBusiness  # Import models
-
     try:
         # Check for duplicate email
         existing_customer = check_existing_by_email(
@@ -20,38 +20,40 @@ def create_customer_service(db: Session, customer_data: dict) -> dict:
         )
         if existing_customer:
             return {"message": "Customer with this email already exists"}
-
+        
         # Handle corporate customer logic
-        if customer_data["customer_type"] == "corporate":
+        if customer_data["customer_type"] == Type.corporate:
             customer_data["active_flag"] = False  # Default active_flag for corporate customers
             customer_data["verification_status"] = "Pending"
-
-            # Extract business-specific fields
+            
+            # Extract business-specific fields from customer_data
             business_fields = ["tax_id", "license_number", "designation", "company_name"]
             business_data = {field: customer_data.pop(field, None) for field in business_fields}
-
-            # Check for missing fields
+            
+            # Check for missing business fields
             missing_fields = [field for field in business_fields if not business_data.get(field)]
             if missing_fields:
-                db.rollback()  # Rollback any pending transaction
                 return {
-                     "message": f"Missing required fields for corporate customer: {', '.join(missing_fields)}"
+                    "message": f"Missing required fields for corporate customer: {', '.join(missing_fields)}"
                 }
 
-            # Create the customer
-            new_customer = Customer(**customer_data)
-            db.add(new_customer)
-            db.commit()
-            db.refresh(new_customer)
+            # Create the customer in the database (without business fields)
+            new_customer, new_business = create_customer_crud(db, customer_data, business_data)
+            
+            # Serialize business details into a dictionary
+            business_details = None
+            if new_business:
+                business_details = {
+                    "business_id": new_business.business_id,
+                    "tax_id": new_business.tax_id,
+                    "license_number": new_business.license_number,
+                    "designation": new_business.designation,
+                    "company_name": new_business.company_name,
+                }
+            print(f"Business data before commit: {business_data}")
+            print(f"Returning business details: {business_details}")
 
-            # Create the associated business details
-            business_data["customer_id"] = new_customer.customer_id
-            new_business = CustomerBusiness(**business_data)
-            db.add(new_business)
-            db.commit()
-            db.refresh(new_business)
-
-            # Include business details in the response
+            # Return the response with business details for corporate customer
             return {
                 "customer_id": new_customer.customer_id,
                 "customer_name": new_customer.customer_name,
@@ -65,28 +67,19 @@ def create_customer_service(db: Session, customer_data: dict) -> dict:
                 "customer_geolocation": new_customer.customer_geolocation,
                 "customer_type": new_customer.customer_type,
                 "customer_category": new_customer.customer_category,
-                "verification_status": new_customer.verification_status,
+                "verification_status": VerificationStatus.pending,
                 "remarks": new_customer.remarks,
                 "active_flag": new_customer.active_flag,
-                "business_details": {
-                    "business_id": new_business.business_id,
-                    "tax_id": new_business.tax_id,
-                    "license_number": new_business.license_number,
-                    "designation": new_business.designation,
-                    "company_name": new_business.company_name,
-                }
+                "business_details": business_details,  # Serialized business details
             }
 
-        # Handle individual customers
+        # Handle individual customers (no business details)
         else:
             customer_data["active_flag"] = True  # Default active_flag for individual customers
             customer_data["verification_status"] = "None"
 
-            # Create the customer
-            new_customer = Customer(**customer_data)
-            db.add(new_customer)
-            db.commit()
-            db.refresh(new_customer)
+            # Create the customer in the database
+            new_customer, new_business = create_customer_crud(db, customer_data)
 
             # Return the response for individual customers
             return {
@@ -109,83 +102,87 @@ def create_customer_service(db: Session, customer_data: dict) -> dict:
             }
 
     except IntegrityError as e:
-        db.rollback()
         return {"message": f"Database error: {str(e)}"}
     except Exception as e:
-        db.rollback()
         return {"message": f"Unexpected error while creating customer: {str(e)}"}
 
 
 
 def update_customer_service(db: Session, customer_data: dict) -> dict:
-    """Business logic for updating a customer and their business details."""
-    from app.crud.customers import update_customer  # Local import to avoid circular import
+    """Business logic for updating a customer's details based on customer email."""
+
 
     try:
-        # Step 1: Check if the customer already exists based on email
-        existing_customer = db.query(Customer).filter(Customer.customer_email == customer_data["customer_email"]).first()
+        # Step 1: Check if the customer exists based on email
+        existing_customer = check_existing_by_email(db, Customer, "customer_email", customer_data["customer_email"])
         if not existing_customer:
-            return {"message": "Customer does not exist"}
+            return {"message": "No customers found with the given email."}  # Return message if no customer is found
 
-        # Step 2: Exclude fields from update (customer_type, customer_category,remarks, verification_status)
-        fields_to_exclude = ["customer_type", "customer_category", "remarks", "verification_status"]
+        # Step 2: Exclude fields that shouldn't be updated
+        fields_to_exclude = ["verification_status", "customer_category", "remarks"]
         filtered_data = {key: value for key, value in customer_data.items() if key not in fields_to_exclude and value is not None}
 
-        # Step 3: Update main customer details (excluding certain fields)
-        for field, value in filtered_data.items():
-            if hasattr(existing_customer, field):
-                setattr(existing_customer, field, value)
+        # Step 3: Update the customer's details (without modifying customer_email)
+        updated_customer = update_customer_crud(db, existing_customer.customer_email, filtered_data)
 
-        # Step 4: Handle business details only for corporate customers
+        if not updated_customer:
+            return {"message": "Error updating customer details."}
+
+        # Step 4: Handle business details for corporate customers
+        business_details = None
         if customer_data.get("customer_type") == "corporate":
-            # Update business details if customer is a business (corporate)
-            existing_business = db.query(CustomerBusiness).filter(CustomerBusiness.customer_id == existing_customer.customer_id).first()
+            existing_business = db.query(CustomerBusiness).filter(CustomerBusiness.customer_id == updated_customer.customer_id).first()
             if existing_business:
-                # Update business fields
+                # Update business fields if the customer is a business (corporate)
                 business_fields = ["tax_id", "license_number", "designation", "company_name"]
                 for field in business_fields:
                     if field in customer_data and customer_data[field] is not None:
                         setattr(existing_business, field, customer_data[field])
             else:
-                # If business details don't exist, create new business entry
-                business_data = {field: customer_data.get(field) for field in ["tax_id", "license_number", "designation", "company_name"] if customer_data.get(field)}
-                business_data["customer_id"] = existing_customer.id
+                # Create a new business entry if it doesn't exist
+                business_data = {field: customer_data.get(field) for field in business_fields if customer_data.get(field)}
+                business_data["customer_email"] = updated_customer.customer_email
                 new_business = CustomerBusiness(**business_data)
                 db.add(new_business)
+            business_details = {
+                "tax_id": existing_business.tax_id if existing_business else None,
+                "license_number": existing_business.license_number if existing_business else None,
+                "designation": existing_business.designation if existing_business else None,
+                "company_name": existing_business.company_name if existing_business else None
+            }
 
-        # Commit the changes to the database
+        # Commit changes to the database
         db.commit()
 
-        # Return the updated customer details
+        # Return the updated customer details along with business details
         return {
-            "customer_id": existing_customer.customer_id,
-            "customer_name": existing_customer.customer_name,
-            "customer_email": existing_customer.customer_email,
-            "customer_mobile": existing_customer.customer_mobile,
-            "customer_address": existing_customer.customer_address,
-            "customer_city": existing_customer.customer_city,
-            "customer_state": existing_customer.customer_state,
-            "customer_country": existing_customer.customer_country,
-            "customer_pincode": existing_customer.customer_pincode,
-            "customer_geolocation": existing_customer.customer_geolocation,
-            "tax_id": existing_business.tax_id if existing_business else None,
-            "license_number": existing_business.license_number if existing_business else None,
-            "designation": existing_business.designation if existing_business else None,
-            "company_name": existing_business.company_name if existing_business else None,
+            "customer_id": updated_customer.customer_id,
+            "customer_name": updated_customer.customer_name,
+            "customer_email": updated_customer.customer_email,
+            "customer_mobile": updated_customer.customer_mobile,
+            "customer_address": updated_customer.customer_address,
+            "customer_city": updated_customer.customer_city,
+            "customer_state": updated_customer.customer_state,
+            "customer_country": updated_customer.customer_country,
+            "customer_pincode": updated_customer.customer_pincode,
+            "customer_geolocation": updated_customer.customer_geolocation,
+            "customer_type": updated_customer.customer_type,
+            "customer_category": updated_customer.customer_category,  # Include customer category if needed
+            "business_details": business_details  # Include business details if available
         }
 
-    except IntegrityError as e:
-        db.rollback()
-        return {"message": f"Database error: {str(e)}"}
     except Exception as e:
+        logger.error(f"Error in updating customer: {str(e)}")
         db.rollback()
         return {"message": f"Error updating customer: {str(e)}"}
 
 
-def suspend_or_activate_customer(
+
+
+
+def suspend_or_activate_customer_service(
     db: Session, customer_email: str, active_flag: int, remarks: str
 ) -> dict:
-    from app.crud.customers import get_customer_by_email, update_customer_status
     """
     Suspend, activate, or set a customer's status to pending based on the provided active_flag.
     Args:
@@ -202,240 +199,185 @@ def suspend_or_activate_customer(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid active flag value. Use 0 (Pending), 1 (Active), or 2 (Suspended)."
         )
-    # Retrieve the customer based on email
-    existing_customer = get_customer_by_email(db, customer_email)
-    if not existing_customer:
+
+    # Call the CRUD to suspend or activate the customer
+    updated_customer = suspend_or_active_customer_crud(db, customer_email, active_flag, remarks)
+
+    if not updated_customer:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Customer not found"
         )
-    # Update the customer's status and remarks
-    update_customer_status(db, existing_customer, active_flag, remarks)
-    db.refresh(existing_customer)
+
     # Map active_flag to a readable verification status
     verification_status_map = {
-        0: "Pending",
-        1: "Verified",
-        2: "Suspended"
+        0: VerificationStatus.none,
+        1: VerificationStatus.verified,
+        2: VerificationStatus.pending
     }
-    verification_status = verification_status_map.get(active_flag, "Unknown")
+    verification_status = verification_status_map.get(active_flag, VerificationStatus.none)
+
     # Return the updated customer details
     return {
-        "customer_id": existing_customer.customer_id,
-        "customer_name": existing_customer.customer_name,
-        "customer_email": existing_customer.customer_email,
-        "customer_mobile": existing_customer.customer_mobile,
-        "customer_address": existing_customer.customer_address,
-        "customer_city": existing_customer.customer_city,
-        "customer_state": existing_customer.customer_state,
-        "customer_country": existing_customer.customer_country,
-        "customer_pincode": existing_customer.customer_pincode,
-        "customer_geolocation": existing_customer.customer_geolocation,
-        "active_flag": active_flag,
+        "customer_id": updated_customer.customer_id,
+        "customer_name": updated_customer.customer_name,
+        "customer_email": updated_customer.customer_email,
+        "customer_mobile": updated_customer.customer_mobile,
+        "customer_address": updated_customer.customer_address,
+        "customer_city": updated_customer.customer_city,
+        "customer_state": updated_customer.customer_state,
+        "customer_country": updated_customer.customer_country,
+        "customer_pincode": updated_customer.customer_pincode,
+        "customer_geolocation": updated_customer.customer_geolocation,
+        "active_flag": updated_customer.active_flag,
         "verification_status": verification_status,
-        "remarks": remarks
+        "remarks": remarks,
     }
 
-
-def verify_corporate_customer(db: Session, customer_email: str, verification_status: str) -> dict:
-    from app.crud.customers import get_customer_by_email, update_customer_verification_status
-
-    # Validate the verification status
-    if verification_status not in ["verified", "pending"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid verification status. Use 'verified' or 'not pending'.")
+def verify_corporate_customer_service(db: Session, customer_email: str, verification_status: VerificationStatus) -> dict:
+    # Log the received values for debugging
+    print(f"Received verification status: '{verification_status}' for customer email: '{customer_email}'")
 
     # Step 1: Check if the customer exists based on email
-    existing_customer = get_customer_by_email(db, customer_email)
+    existing_customer = db.query(Customer).filter(Customer.customer_email == customer_email).first()
     if not existing_customer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
 
-    # Step 2: Update the active flag and status based on the verification status
-    if verification_status == "verified":
-        active_flag = 1  # Active
+    # Step 2: Determine the active flag based on the verification status
+    if verification_status == VerificationStatus.verified:
+        active_flag = 1  # Corporate verified
+    elif verification_status == VerificationStatus.pending:
+        active_flag = 2  # Corporate pending
     else:
-        active_flag = 0  # Pending
+        active_flag = 0  # Individual or unverified
 
-    update_customer_verification_status(db, existing_customer, active_flag, verification_status)
+    # Step 3: Update the customer in the database with the correct verification status and active flag
+    updated_customer = verify_corporate_customer_crud(db, existing_customer, active_flag, verification_status)
 
-    db.refresh(existing_customer)  # Refresh the state of the customer from the database
-
-    # Step 3: Return the updated customer details
+    # Step 4: Return the updated customer details
     return {
-        "customer_id": existing_customer.customer_id,
-        "customer_name": existing_customer.customer_name,
-        "customer_email": existing_customer.customer_email,
-        "active": existing_customer.active,
-        "verification_status": existing_customer.verification_status,
+        "customer_id": updated_customer.customer_id,
+        "customer_name": updated_customer.customer_name,
+        "customer_email": updated_customer.customer_email,
+        "customer_mobile": updated_customer.customer_mobile,
+        "verification_status": updated_customer.verification_status,
+        "remarks": updated_customer.remarks,
+        "active_flag": updated_customer.active_flag,
         "message": "Customer verification status updated successfully."
     }
 
-def fetch_customer_profile(db: Session, customer_email: str) -> dict:
-    from app.crud.customers import get_customer_by_email, get_corporate_customer_details
 
-    # Step 1: Retrieve the customer details using the email
-    customer = get_customer_by_email(db, customer_email)
-    if not customer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
-
-    # Step 2: Construct the common response fields
-    response = {
-        "customer_id": customer.customer_id,
-        "customer_name": customer.customer_name,
-        "customer_mobile": customer.customer_mobile,
-        "customer_email": customer.customer_email,
-        "customer_address": customer.customer_address,
-        "customer_city": customer.customer_city,
-        "customer_state": customer.customer_state,
-        "customer_country": customer.customer_country,
-        "customer_pincode": customer.customer_pincode,
-        "customer_geolocation": customer.customer_geolocation,
-        "customer_type": customer.customer_type,
-        "customer_category": customer.customer_category
-    }
-
-    # Step 3: If the customer is corporate, retrieve additional details from CustomerBusiness
-    if customer.customer_type == "corporate":
-        business_details = get_corporate_customer_details(db, customer.customer_id)
-        if business_details:
-            response.update({
-                "business_id": business_details.business_id,
-                "tax_id": business_details.tax_id,
-                "license_number": business_details.license_number,
-                "designation": business_details.designation,
-                "company_name": business_details.company_name
-            })
-        else:
-            response["business_details"] = "No additional business details available"
-
-    return response
-
-
-def get_all_customers_with_booking_list(db: Session) -> list:
-    from app.crud.customers import get_customer_by_id  # Import your customer-related CRUD functions
-    from app.models import Customer, Bookings, CustomerBusiness  # Ensure these models are imported
-    """
-    Retrieve all customers with their booking list summaries.
-    Includes business details for corporate customers.
-    """
+def get_customer_profile_service(db: Session, customer_email: str) -> dict:
+    """Retrieve a customer profile from the database based on email, including business details if corporate."""
     try:
-        # Fetch all customers from the database
-        customers = db.query(Customer).all()
-        if not customers:
-            raise HTTPException(status_code=404, detail="No customers found")
+        # Fetch the customer from the Customer table
+        customer = get_customer_profile_crud(db, customer_email)
+        
+        # Prepare the base response with common customer fields
+        response = {
+            "customer_id": customer.customer_id,
+            "customer_name": customer.customer_name,
+            "customer_mobile": customer.customer_mobile,
+            "customer_email": customer.customer_email,
+            "customer_address": customer.customer_address,
+            "customer_city": customer.customer_city,
+            "customer_state": customer.customer_state,
+            "customer_country": customer.customer_country,
+            "customer_pincode": customer.customer_pincode,
+            "customer_geolocation": customer.customer_geolocation,
+            "customer_type": customer.customer_type.value,
+            "customer_category": customer.customer_category,
+        }
 
-        # Prepare the list to hold customer responses
-        customer_list = []
+        # If the customer is a corporate customer, include the business details
+        if customer.customer_type == Type.corporate and customer.customer_business:
+            response.update({
+                "business_id": customer.customer_business.business_id,
+                "tax_id": customer.customer_business.tax_id,
+                "license_number": customer.customer_business.license_number,
+                "designation": customer.customer_business.designation,
+                "company_name": customer.customer_business.company_name
+            })
 
-        # Iterate through each customer to prepare the response
-        for customer in customers:
-            # Fetch detailed information about the customer
-            customer_details = get_customer_by_id(db, customer.customer_id)
-
-            response = {
-                "customer_id": customer_details.customer_id,
-                "customer_name": customer_details.customer_name,
-                "customer_mobile": customer_details.customer_mobile,
-                "customer_email": customer_details.customer_email,
-                "customer_address": customer_details.customer_address,
-                "customer_city": customer_details.customer_city,
-                "customer_state": customer_details.customer_state,
-                "customer_country": customer_details.customer_country,
-                "customer_pincode": customer_details.customer_pincode,
-                "customer_geolocation": customer_details.customer_geolocation,
-                "customer_type": customer_details.customer_type,
-                "customer_category": customer_details.customer_category,
-            }
-
-            # If the customer is corporate, fetch and include business details from CustomerBusiness table
-            if customer_details.customer_type == "corporate":
-                # Fetch business details from the CustomerBusiness table
-                corporate_details = db.query(CustomerBusiness).filter(CustomerBusiness.customer_id == customer_details.customer_id).first()
-                if corporate_details:
-                    response.update({
-                        "business_id": corporate_details.business_id,
-                        "tax_id": corporate_details.tax_id,
-                        "license_number": corporate_details.license_number,
-                        "designation": corporate_details.designation,
-                        "company_name": corporate_details.company_name,
-                    })
-                else:
-                    logging.warning(f"Corporate details not found for customer ID {customer_details.customer_id}")
-                    # Add empty values if no corporate details found
-                    response.update({
-                        "business_id": None,
-                        "tax_id": None,
-                        "license_number": None,
-                        "designation": None,
-                        "company_name": None,
-                    })
-            else:
-                # Ensure these fields are set to None for non-corporate customers
-                response.update({
-                    "business_id": None,
-                    "tax_id": None,
-                    "license_number": None,
-                    "designation": None,
-                    "company_name": None,
-                })
-
-            # Fetch all bookings associated with the current customer
-            bookings = db.query(Bookings).filter(Bookings.customer_id == customer_details.customer_id).all()
-            booking_summary = [
-                {
-                    "booking_id": booking.booking_id,
-                    "from_city": booking.from_city,
-                    "from_pincode": booking.from_pincode,
-                    "to_city": booking.to_city,
-                    "to_pincode": booking.to_pincode,
-                    "status": booking.booking_status,
-                    "action": f"View details of Booking {booking.booking_id}",
-                }
-                for booking in bookings
-            ]
-            response["bookings"] = booking_summary
-
-            # Add the customer response to the list
-            customer_list.append(response)
-
-        return customer_list
+        return response
 
     except Exception as e:
-        # Log any error that occurs during the process
-        logging.error(f"Error fetching customer list with booking summaries: {str(e)}")
-        # Raise an HTTPException with status 500 and the error details
-        raise HTTPException(status_code=500, detail=f"Error fetching customer list: {str(e)}")
+        logger.error(f"Error retrieving customer profile: {str(e)}")  # Log error
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error retrieving customer profile: {str(e)}")
+    
 
-
-
-def get_customer_with_booking_details(db: Session, customer_id: int, booking_id: int):
-    from app.models.bookings import BookingItem  # Import BookingItem
+def get_customers_list_service(db: Session) -> list:
+    """Retrieve a list of customer profiles from the database, including business details if corporate."""
     try:
-        # Query the booking with the specified customer_id and booking_id
-        booking = db.query(Bookings).filter(Bookings.customer_id == customer_id, Bookings.booking_id == booking_id).first()
-        if not booking:
-            raise HTTPException(status_code=404, detail="Booking not found")
+        # Fetch all customers from the Customer table
+        customers = get_customer_profile_list_crud(db)
+        
+        # Prepare a list to store the customer profiles
+        response = []
 
-        # Retrieve the customer details
-        customer = db.query(Customer).filter(Customer.customer_id == customer_id).first()
+        for customer in customers:
+            # Prepare the base response with common customer fields
+            customer_profile = {
+                "customer_id": customer.customer_id,
+                "customer_name": customer.customer_name,
+                "customer_mobile": customer.customer_mobile,
+                "customer_email": customer.customer_email,
+                "customer_address": customer.customer_address,
+                "customer_city": customer.customer_city,
+                "customer_state": customer.customer_state,
+                "customer_country": customer.customer_country,
+                "customer_pincode": customer.customer_pincode,
+                "customer_geolocation": customer.customer_geolocation,
+                "customer_type": customer.customer_type.value,
+                "customer_category": customer.customer_category,
+            }
+
+            # If the customer is a corporate customer, include the business details
+            if customer.customer_type == Type.corporate and customer.customer_business:
+                customer_profile.update({
+                    "tax_id": customer.customer_business.tax_id,
+                    "license_number": customer.customer_business.license_number,
+                    "designation": customer.customer_business.designation,
+                    "company_name": customer.customer_business.company_name
+                })
+
+            # Append the customer profile to the response list
+            response.append(customer_profile)
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Error retrieving customer list: {str(e)}")  # Log error
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error retrieving customer list: {str(e)}")
+
+
+def get_customer_with_booking_details_service(db: Session, customer_id: int, booking_id: int):
+    """Retrieve a specific booking with its items for a given customer."""
+    try:
+        # Fetch customer using customer_id
+        customer = get_customer_profile_crud(db, customer_id)
         if not customer:
             raise HTTPException(status_code=404, detail="Customer not found")
-
-        # Check if the customer is corporate and fetch additional business details
+        
+        # Fetch booking using CRUD function
+        booking = get_customer_with_booking_details_crud(db, customer.customer_id, booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        # Check if customer is corporate and fetch business details if applicable
         business_details = {}
-        if customer.customer_type == "corporate":
-            corporate_details = db.query(CustomerBusiness).filter(CustomerBusiness.customer_id == customer_id).first()
-            if corporate_details:
+        if customer.customer_type == Type.corporate:
+            if customer.customer_business:
                 business_details = {
-                    "business_id": corporate_details.business_id,
-                    "tax_id": corporate_details.tax_id,
-                    "license_number": corporate_details.license_number,
-                    "designation": corporate_details.designation,
-                    "company_name": corporate_details.company_name,
+                    "tax_id": customer.customer_business.tax_id,
+                    "license_number": customer.customer_business.license_number,
+                    "designation": customer.customer_business.designation,
+                    "company_name": customer.customer_business.company_name
                 }
             else:
                 raise HTTPException(status_code=404, detail="Corporate details not found for this customer")
-
-        # Prepare the booking response with customer, business, and booking details
+        
+        # Prepare the response with customer, business, and booking details
         booking_response = {
             "customer_name": customer.customer_name,
             "customer_mobile": customer.customer_mobile,
@@ -461,25 +403,110 @@ def get_customer_with_booking_details(db: Session, customer_id: int, booking_id:
             "item_details": [
                 {
                     "item_id": item.item_id,
-                    "booking_id": item.booking_id,
                     "weight": item.weight,
-                    "length": item.length,
-                    "width": item.width,
-                    "height": item.height,
-                    "package_type": item.package_type.name,  # Assuming package_type is an enum
+                    "package_type": item.package_type.name,
                     "cost": item.cost,
                     "ratings": item.rating,
                 }
-                for item in db.query(BookingItem).filter(BookingItem.booking_id == booking.booking_id).all()
+                for item in booking.items  # Access items directly from the booking relationship
             ],
         }
-
+        
         # Include business details for corporate customers
         if business_details:
             booking_response.update(business_details)
-
+        
         return booking_response
-
+    
     except Exception as e:
         logging.error(f"Error retrieving booking details for customer {customer_id} and booking {booking_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+def get_customer_with_booking_list_service(db: Session, customer_email: str) -> dict:
+    """Retrieve all bookings for a given customer identified by their email."""
+    try:
+        # Fetch the customer from the Customer table (with business details)
+        customer = get_customer_profile_crud(db, customer_email)
+
+        # Prepare the base response with customer details
+        response = {
+            "customer_id": customer.customer_id,
+            "customer_name": customer.customer_name,
+            "customer_mobile": customer.customer_mobile,
+            "customer_email": customer.customer_email,
+            "customer_address": customer.customer_address,
+            "customer_city": customer.customer_city,
+            "customer_state": customer.customer_state,
+            "customer_country": customer.customer_country,
+            "customer_pincode": customer.customer_pincode,
+            "customer_geolocation": customer.customer_geolocation,
+            "customer_type": customer.customer_type.value,
+            "customer_category": customer.customer_category,
+        }
+
+        # If the customer is corporate and has business details, include them
+        if customer.customer_type == Type.corporate and customer.customer_business:
+            response.update({
+                "business_id": customer.customer_business.business_id,
+                "tax_id": customer.customer_business.tax_id,
+                "license_number": customer.customer_business.license_number,
+                "designation": customer.customer_business.designation,
+                "company_name": customer.customer_business.company_name
+            })
+
+        # Fetch all bookings associated with the customer
+        bookings = get_customer_with_booking_list_crud(db, customer.customer_id)
+        print(f"Bookings: {bookings}")
+
+        # Construct list of booking summaries
+        booking_summaries = [
+    {
+        "booking_id": booking.booking_id,
+        "from_city": booking.from_city,
+        "from_pincode": booking.from_pincode,
+        "to_city": booking.to_city,
+        "to_pincode": booking.to_pincode,
+        "status": booking.status,
+        "action": booking.action
+    }
+    for booking in bookings or []
+]
+
+
+        # Add bookings to response
+        response["bookings"] = booking_summaries
+
+        return response  # Return the final response dictionary
+
+    except HTTPException as http_ex:
+        raise http_ex
+    except Exception as e:
+        logging.error(f"Error retrieving booking list for customer {customer_email}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+
+
+
+
+
+
+
+
+    
+
+def soft_delete_customer_service(db: Session, customer_email: str):
+    """Service layer function to soft delete a customer."""
+    try:
+        # Call the CRUD function to soft delete the customer
+        deleted_customer = soft_delete_customer_crud(db, customer_email)
+        
+        # Return the customer object directly
+        return deleted_customer
+    except Exception as e:
+        # Handle and raise any errors that occur during the process
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while trying to soft delete the customer: {str(e)}"
+        )    

@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
+from app.models.enums import VerificationStatus
 
 class Carrier(BaseModel):
     carrier_name: str
@@ -30,16 +31,16 @@ class CarrierCreate(BaseModel):
         arbitrary_types_allowed = True
 
 class CarrierUpdate(BaseModel):
-    carrier_name: Optional[str] = None
-    carrier_email: Optional[str] = None
-    carrier_mobile: Optional[str] = None
-    carrier_address: Optional[str] = None
-    carrier_city: Optional[str] = None
-    carrier_state: Optional[str] = None
-    carrier_country: Optional[str] = None
-    carrier_pincode: Optional[str] = None
-    carrier_geolocation: Optional[str] = None
-    remarks: Optional[str] = None
+    carrier_name: Optional[str] 
+    carrier_email: Optional[str]
+    carrier_mobile: Optional[str]
+    carrier_address: Optional[str]
+    carrier_city: Optional[str]
+    carrier_state: Optional[str]
+    carrier_country: Optional[str] 
+    carrier_pincode: Optional[str] 
+    carrier_geolocation: Optional[str] 
+    remarks: Optional[str]
 
     class Config:
         from_attributes = True
@@ -77,3 +78,34 @@ class CarrierResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class SuspendOrActiveRequest(BaseModel):
+    carrier_email: str
+    active_flag: int
+    remarks: str
+
+class SuspendOrActiveResponse(BaseModel):
+    carrier_id: int
+    carrier_name: str
+    carrier_email: str
+    carrier_mobile: str
+    carrier_role: str
+    verification_status: Optional[VerificationStatus] = None
+    remarks: Optional[str] = None
+    active_flag: int
+
+    class Config:
+        from_attributes = True
+
+
+class DeleteRequest(BaseModel):
+    carrier_email: str
+    
+class DeleteResponse(BaseModel):
+    carrier_id: int
+    carrier_name: str
+    carrier_email: str
+
+
+    class Config:
+        from_attributes = True          

@@ -26,7 +26,7 @@ class BookingItemBase(BaseModel):
     cost: float
     pickup_method: PickupMethod = PickupMethod.user_address
     booking_status: PickupStatus = PickupStatus.pending
-    rating: Optional[RatingEnum] = None
+    rating: RatingEnum = RatingEnum.Three
 
     
 

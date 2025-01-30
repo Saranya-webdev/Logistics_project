@@ -1,9 +1,9 @@
 from pydantic import BaseModel, root_validator, Field
 from typing import Optional, List
-from app.models.enums import Category, Type, VerificationStatus
+from app.models.enums import Type, Category, VerificationStatus
 from app.schemas.bookings import BookingSummary
 
-class CustomerBase(BaseModel):
+class Customer(BaseModel):
     customer_name: str
     customer_email: str
     customer_mobile: str
@@ -12,9 +12,9 @@ class CustomerBase(BaseModel):
     customer_state: str
     customer_country: str
     customer_pincode: Optional[str] = None
-    customer_geolocation: Optional[str] = None
-    customer_type: Type
-    customer_category: Category
+    customer_geolocation: str
+    customer_type: str
+    customer_category: str
     verification_status: VerificationStatus
     active_flag: int
 
@@ -40,8 +40,6 @@ class CustomerCreate(BaseModel):
     @root_validator(pre=True)
     def check_business_fields(cls, values):
         customer_type = values.get("customer_type")
-        required_fields = []  # Initialize it outside the if block
-
         if customer_type == Type.corporate:
             required_fields = ["tax_id", "license_number", "designation", "company_name"]
             missing = [field for field in required_fields if not values.get(field)]
@@ -51,7 +49,6 @@ class CustomerCreate(BaseModel):
             # Set business-related fields to None for individual customers
             for field in ["tax_id", "license_number", "designation", "company_name"]:
                 values[field] = None
-
         return values
 
     class Config:
@@ -98,8 +95,7 @@ class CustomerUpdateResponse(BaseModel):
     customer_type: Type
     customer_category: Category
     verification_status: VerificationStatus
-    active_flag: Optional[int] = None       
-
+    # active_flag: Optional[int] = None
 
 class CustomerResponse(BaseModel):
     customer_id: int
@@ -131,13 +127,13 @@ class CustomerResponse(BaseModel):
 class CustomerBookingListResponse(BaseModel):
     customer_id: int
     customer_name: str
-    mobile: str
-    email: str
-    address: str
-    city: str
-    state: str
-    country: str
-    pincode: Optional[str]
+    customer_mobile: str
+    customer_email: str
+    customer_address: str
+    customer_city: str
+    customer_state: str
+    customer_country: str
+    customer_pincode: Optional[str] = None
 
     # Business-related fields
     business_id: Optional[int] = None
@@ -145,4 +141,57 @@ class CustomerBookingListResponse(BaseModel):
     license_number: Optional[str] = None
     designation: Optional[str] = None
     company_name: Optional[str] = None
-    bookings: List[BookingSummary]
+    bookings: List[BookingSummary] = []
+
+
+class BookingListResponse(BaseModel):
+    bookings: List[CustomerBookingListResponse] = []
+
+
+
+class SuspendOrActiveRequest(BaseModel):
+    customer_email: str
+    active_flag: int
+    remarks: str
+
+class SuspendOrActiveResponse(BaseModel):
+    customer_id: int
+    customer_name: str
+    customer_email: str
+    customer_mobile: str
+    verification_status: Optional[VerificationStatus] = None
+    remarks: Optional[str] = None
+    active_flag: int
+
+    class Config:
+        from_attributes = True
+
+
+class VerifyStatusRequest(BaseModel):
+    customer_email: str
+    verification_status: VerificationStatus
+
+class VerifyStatusResponse(BaseModel):
+    customer_id: int
+    customer_name: str
+    customer_email: str
+    customer_mobile: str
+    verification_status: Optional[VerificationStatus] = None
+    remarks: Optional[str] = None
+    active_flag: int
+
+    class Config:
+        from_attributes = True
+
+
+class DeleteRequest(BaseModel):
+    customer_email: str
+    
+class DeleteResponse(BaseModel):
+    customer_id: int
+    customer_name: str
+    customer_email: str
+
+
+    class Config:
+        from_attributes = True           
