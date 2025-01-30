@@ -3,7 +3,7 @@ from fastapi import HTTPException, status
 from app.models.agents import Agent
 from app.models.enums import VerificationStatus
 from app.utils import check_existing_by_email
-from app.crud.agents import create_agent_crud, update_agent_crud, suspend_or_active_agent_crud, verify_agent_crud, get_agent_profile_crud, get_all_agents_crud, soft_delete_agent_crud
+from app.crud.agents import create_agent_crud, update_agent_crud, suspend_or_active_agent_crud, verify_agent_crud, get_agent_profile_crud, get_all_agents_crud
 import logging
 
 logger = logging.getLogger(__name__)
@@ -282,20 +282,3 @@ def verify_agent_service(db: Session, agent_email: str, verification_status: str
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error verifying agent: {str(e)}"
         )
-
-
-def soft_delete_agent_service(db: Session, agent_email: str):
-    """Service layer function to soft delete a agent."""
-    try:
-        # Call the CRUD function to soft delete the agent
-        deleted_agent = soft_delete_agent_crud(db, agent_email)
-        
-        # Return the agent object directly
-        return deleted_agent
-    except Exception as e:
-        # Handle and raise any errors that occur during the process
-        raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while trying to soft delete the agent: {str(e)}"
-        )
-    

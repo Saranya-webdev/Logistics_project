@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.databases.mysqldb import get_db
 import logging
-from app.schemas.carriers import CarrierCreate, CarrierResponse, CarrierUpdateResponse, CarrierUpdate, SuspendOrActiveRequest, SuspendOrActiveResponse, DeleteResponse,DeleteRequest
-from app.service.carriers import create_carrier_service, update_carrier_service, suspend_or_activate_carrier, get_carrier_profile, get_carriers_profile_list, soft_delete_carrier_service
+from app.schemas.carriers import CarrierCreate, CarrierResponse, CarrierUpdateResponse, CarrierUpdate, SuspendOrActiveRequest, SuspendOrActiveResponse
+from app.service.carriers import create_carrier_service, update_carrier_service, suspend_or_activate_carrier, get_carrier_profile, get_carriers_profile_list
 
 logger = logging.getLogger(__name__)
 
@@ -99,32 +99,4 @@ def get_carriers_list(db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected error occurred: {str(e)}"
-        )
-
-
-
-@router.delete("/soft-delete", response_model=DeleteResponse)
-def soft_delete_carrier_endpoint(delete_request: DeleteRequest, db: Session = Depends(get_db)):
-    """
-    Endpoint to soft delete a carrier based on their email.
-    """
-    try:
-        # Extract email from the request body
-        carrier_email = delete_request.carrier_email
-        
-        # Call the service layer for soft deletion
-        deleted_carrier = soft_delete_carrier_service(db, carrier_email)
-        
-        # Ensure the response model fields match exactly
-        return DeleteResponse(
-            carrier_id=deleted_carrier.carrier_id,
-            carrier_name=deleted_carrier.carrier_name,  # Ensure this is included
-            carrier_email=deleted_carrier.carrier_email
-        )
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while soft deleting the carrier: {str(e)}"
         )

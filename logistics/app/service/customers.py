@@ -6,8 +6,9 @@ from app.models.enums import VerificationStatus, Type
 from sqlalchemy.exc import IntegrityError
 from app.utils import check_existing_by_email
 import logging
-from app.crud.customers import create_customer_crud,soft_delete_customer_crud, suspend_or_active_customer_crud,verify_corporate_customer_crud, get_customer_profile_crud, get_customer_profile_list_crud, get_customer_with_booking_details_crud,get_customer_with_booking_list_crud, update_customer_crud
-
+import json
+from app.crud.customers import create_customer_crud,suspend_or_active_customer_crud,verify_corporate_customer_crud, get_customer_profile_crud, get_customer_profile_list_crud, get_customer_with_booking_details_crud,get_customer_with_booking_list_crud, update_customer_crud
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
@@ -36,13 +37,16 @@ def create_customer_service(db: Session, customer_data: dict) -> dict:
                 return {
                     "message": f"Missing required fields for corporate customer: {', '.join(missing_fields)}"
                 }
-
+            print(f"customer data in service: {customer_data}")
+            print(f"business data in service : {business_data}")
             # Create the customer in the database (without business fields)
             new_customer, new_business = create_customer_crud(db, customer_data, business_data)
-            
+            print(f"new customer in service: {new_customer}")
+            print(f"new business in service: {new_business}")
             # Serialize business details into a dictionary
             business_details = None
             if new_business:
+                print(f"business id in service: {new_business.business_id}")
                 business_details = {
                     "business_id": new_business.business_id,
                     "tax_id": new_business.tax_id,
@@ -52,9 +56,27 @@ def create_customer_service(db: Session, customer_data: dict) -> dict:
                 }
             print(f"Business data before commit: {business_data}")
             print(f"Returning business details: {business_details}")
-
+            print(f"json formt : {json.dumps(business_details)}")
             # Return the response with business details for corporate customer
-            return {
+            # return {
+            #     "customer_id": new_customer.customer_id,
+            #     "customer_name": new_customer.customer_name,
+            #     "customer_email": new_customer.customer_email,
+            #     "customer_mobile": new_customer.customer_mobile,
+            #     "customer_address": new_customer.customer_address,
+            #     "customer_city": new_customer.customer_city,
+            #     "customer_state": new_customer.customer_state,
+            #     "customer_country": new_customer.customer_country,
+            #     "customer_pincode": new_customer.customer_pincode,
+            #     "customer_geolocation": new_customer.customer_geolocation,
+            #     "customer_type": new_customer.customer_type,
+            #     "customer_category": new_customer.customer_category,
+            #     "verification_status": VerificationStatus.pending,
+            #     "remarks": new_customer.remarks,
+            #     "active_flag": new_customer.active_flag,
+            #     "business_details": json.dumps(business_details),  # Serialized business details
+            # }
+            response_data =  {
                 "customer_id": new_customer.customer_id,
                 "customer_name": new_customer.customer_name,
                 "customer_email": new_customer.customer_email,
@@ -65,13 +87,22 @@ def create_customer_service(db: Session, customer_data: dict) -> dict:
                 "customer_country": new_customer.customer_country,
                 "customer_pincode": new_customer.customer_pincode,
                 "customer_geolocation": new_customer.customer_geolocation,
-                "customer_type": new_customer.customer_type,
-                "customer_category": new_customer.customer_category,
-                "verification_status": VerificationStatus.pending,
+                "customer_type": new_customer.customer_type.value,
+                "customer_category": new_customer.customer_category.value,
+                "verification_status": VerificationStatus.pending.value,
                 "remarks": new_customer.remarks,
                 "active_flag": new_customer.active_flag,
-                "business_details": business_details,  # Serialized business details
+                # "business_details": business_details,  # Serialized business details
+                "business_id": new_business.business_id,
+                    "tax_id": new_business.tax_id,
+                    "license_number": new_business.license_number,
+                    "designation": new_business.designation,
+                    "company_name": new_business.company_name,
             }
+            print(f"response data: {response_data}")
+            return response_data
+
+
 
         # Handle individual customers (no business details)
         else:
@@ -130,7 +161,7 @@ def update_customer_service(db: Session, customer_data: dict) -> dict:
 
         # Step 4: Handle business details for corporate customers
         business_details = None
-        if customer_data.get("customer_type") == "corporate":
+        if customer_data.get("customer_type") == Type.corporate:
             existing_business = db.query(CustomerBusiness).filter(CustomerBusiness.customer_id == updated_customer.customer_id).first()
             if existing_business:
                 # Update business fields if the customer is a business (corporate)
@@ -168,7 +199,10 @@ def update_customer_service(db: Session, customer_data: dict) -> dict:
             "customer_geolocation": updated_customer.customer_geolocation,
             "customer_type": updated_customer.customer_type,
             "customer_category": updated_customer.customer_category,  # Include customer category if needed
-            "business_details": business_details  # Include business details if available
+            "tax_id": existing_business.tax_id,
+                "license_number": existing_business.license_number ,
+                "designation": existing_business.designation ,
+                "company_name": existing_business.company_name 
         }
 
     except Exception as e:
@@ -178,91 +212,119 @@ def update_customer_service(db: Session, customer_data: dict) -> dict:
 
 
 
-
-
 def suspend_or_activate_customer_service(
     db: Session, customer_email: str, active_flag: int, remarks: str
 ) -> dict:
     """
-    Suspend, activate, or set a customer's status to pending based on the provided active_flag.
+    Suspend, activate, or set a corporate customer's status to pending.
+    Individual customers always have `active_flag = 0` and `verification_status = none`.
+
     Args:
         db (Session): Database session.
         customer_email (str): Customer's email address.
-        active_flag (int): Status to update the customer to (0: Pending, 1: Active, 2: Suspended).
-        remarks (str): Additional remarks for the status update.
+        active_flag (int): Customer status (0: Individual, 1: Corporate Verified, 2: Corporate Pending).
+        remarks (str): Additional remarks.
+
     Returns:
-        dict: Updated customer details with active_flag and verification_status.
+        dict: Updated customer details.
     """
-    # Validate the active_flag
+    # Validate active_flag input
     if active_flag not in [0, 1, 2]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid active flag value. Use 0 (Pending), 1 (Active), or 2 (Suspended)."
+            detail="Invalid active flag value. Use 0 (Individual), 1 (Corporate Verified), or 2 (Corporate Pending)."
         )
 
-    # Call the CRUD to suspend or activate the customer
-    updated_customer = suspend_or_active_customer_crud(db, customer_email, active_flag, remarks)
+    # Retrieve the customer
+    customer = db.query(Customer).filter(Customer.customer_email == customer_email).first()
 
-    if not updated_customer:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Customer not found"
-        )
+    if not customer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
 
-    # Map active_flag to a readable verification status
-    verification_status_map = {
-        0: VerificationStatus.none,
-        1: VerificationStatus.verified,
-        2: VerificationStatus.pending
-    }
-    verification_status = verification_status_map.get(active_flag, VerificationStatus.none)
+    # If the customer is an individual, keep status unchanged
+    if active_flag == 0:
+        customer.active_flag = 0
+        customer.verification_status = VerificationStatus.none  # Always None for individuals
+    else:
+        # Corporate Customer - Update accordingly
+        if active_flag == 1:
+            customer.active_flag = 1
+            customer.verification_status = VerificationStatus.verified  # Verified corporate
+        elif active_flag == 2:
+            customer.active_flag = 2
+            customer.verification_status = VerificationStatus.pending  # Pending corporate
 
-    # Return the updated customer details
+    # Update remarks
+    customer.remarks = remarks
+
+    # Commit the changes
+    db.commit()
+    db.refresh(customer)
+
+    # Return updated details
     return {
-        "customer_id": updated_customer.customer_id,
-        "customer_name": updated_customer.customer_name,
-        "customer_email": updated_customer.customer_email,
-        "customer_mobile": updated_customer.customer_mobile,
-        "customer_address": updated_customer.customer_address,
-        "customer_city": updated_customer.customer_city,
-        "customer_state": updated_customer.customer_state,
-        "customer_country": updated_customer.customer_country,
-        "customer_pincode": updated_customer.customer_pincode,
-        "customer_geolocation": updated_customer.customer_geolocation,
-        "active_flag": updated_customer.active_flag,
-        "verification_status": verification_status,
+        "customer_id": customer.customer_id,
+        "customer_name": customer.customer_name,
+        "customer_email": customer.customer_email,
+        "customer_mobile": customer.customer_mobile,
+        "customer_address": customer.customer_address,
+        "customer_city": customer.customer_city,
+        "customer_state": customer.customer_state,
+        "customer_country": customer.customer_country,
+        "customer_pincode": customer.customer_pincode,
+        "customer_geolocation": customer.customer_geolocation,
+        "active_flag": customer.active_flag,
+        "verification_status": customer.verification_status,
         "remarks": remarks,
     }
 
-def verify_corporate_customer_service(db: Session, customer_email: str, verification_status: VerificationStatus) -> dict:
-    # Log the received values for debugging
-    print(f"Received verification status: '{verification_status}' for customer email: '{customer_email}'")
+def verify_corporate_customer_service(
+    db: Session, customer_email: str, verification_status: VerificationStatus
+) -> dict:
+    """
+    Update verification status for corporate customers only.
 
-    # Step 1: Check if the customer exists based on email
+    Args:
+        db (Session): Database session.
+        customer_email (str): Customer email.
+        verification_status (VerificationStatus): New verification status (verified or pending).
+
+    Returns:
+        dict: Updated customer details.
+    """
+    # Retrieve the customer
     existing_customer = db.query(Customer).filter(Customer.customer_email == customer_email).first()
+
     if not existing_customer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
 
-    # Step 2: Determine the active flag based on the verification status
+    # Ensure only corporate customers are updated
+    if existing_customer.active_flag == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification status is only applicable for corporate customers."
+        )
+
+    # Update active_flag based on verification_status
     if verification_status == VerificationStatus.verified:
-        active_flag = 1  # Corporate verified
+        existing_customer.active_flag = 1
     elif verification_status == VerificationStatus.pending:
-        active_flag = 2  # Corporate pending
-    else:
-        active_flag = 0  # Individual or unverified
+        existing_customer.active_flag = 2
 
-    # Step 3: Update the customer in the database with the correct verification status and active flag
-    updated_customer = verify_corporate_customer_crud(db, existing_customer, active_flag, verification_status)
+    existing_customer.verification_status = verification_status
 
-    # Step 4: Return the updated customer details
+    # Commit changes
+    db.commit()
+    db.refresh(existing_customer)
+
     return {
-        "customer_id": updated_customer.customer_id,
-        "customer_name": updated_customer.customer_name,
-        "customer_email": updated_customer.customer_email,
-        "customer_mobile": updated_customer.customer_mobile,
-        "verification_status": updated_customer.verification_status,
-        "remarks": updated_customer.remarks,
-        "active_flag": updated_customer.active_flag,
+        "customer_id": existing_customer.customer_id,
+        "customer_name": existing_customer.customer_name,
+        "customer_email": existing_customer.customer_email,
+        "customer_mobile": existing_customer.customer_mobile,
+        "verification_status": existing_customer.verification_status,
+        "remarks": existing_customer.remarks,
+        "active_flag": existing_customer.active_flag,
         "message": "Customer verification status updated successfully."
     }
 
@@ -485,28 +547,3 @@ def get_customer_with_booking_list_service(db: Session, customer_email: str) -> 
         logging.error(f"Error retrieving booking list for customer {customer_email}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-
-
-
-
-
-
-
-
-
-    
-
-def soft_delete_customer_service(db: Session, customer_email: str):
-    """Service layer function to soft delete a customer."""
-    try:
-        # Call the CRUD function to soft delete the customer
-        deleted_customer = soft_delete_customer_crud(db, customer_email)
-        
-        # Return the customer object directly
-        return deleted_customer
-    except Exception as e:
-        # Handle and raise any errors that occur during the process
-        raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while trying to soft delete the customer: {str(e)}"
-        )    

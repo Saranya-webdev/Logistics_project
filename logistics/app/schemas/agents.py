@@ -157,15 +157,3 @@ class VerifyStatusResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
-class DeleteRequest(BaseModel):
-    agent_email: str
-    
-class DeleteResponse(BaseModel):
-    agent_id: int
-    agent_name: str
-    agent_email: str
-
-
-    class Config:
-        from_attributes = True           

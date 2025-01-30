@@ -23,9 +23,7 @@ class Associate(Base):
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     active_flag = Column(Integer, default=1)
-    deleted = Column(Boolean, default=False)
-    deleted_at = Column(DateTime, nullable=True)
-
+    
     # # Add this relationship to Associate model
     # associates_credentials = relationship("AssociatesCredential", back_populates="associates")
 

@@ -92,15 +92,3 @@ class VerifyStatusResponse(BaseModel):
     class Config:
         from_attributes = True   
 
-
-class DeleteRequest(BaseModel):
-    associates_email: str
-    
-class DeleteResponse(BaseModel):
-    associates_id: int
-    associates_name: str
-    associates_email: str
-
-
-    class Config:
-        from_attributes = True  

@@ -15,7 +15,7 @@ def log_success(message: str):
 def log_error(message: str, status_code: int):
     logging.error(f"{message} - Status Code: {status_code}")
 
-# CRUD operations for carrier
+# CRUD operations for create carrier
 def create_carrier_crud(db: Session, carrier_data: dict) -> Carrier:
     """
     CRUD operation for creating a carrier in the database.
@@ -33,6 +33,7 @@ def create_carrier_crud(db: Session, carrier_data: dict) -> Carrier:
         raise
 
 
+# CRUD operations for update carrier
 def update_carrier_crud(db: Session, carrier_email: str, carrier_data: dict) -> Carrier:
     """Update a carrier's details based on carrier email."""
     try:
@@ -56,8 +57,7 @@ def update_carrier_crud(db: Session, carrier_email: str, carrier_data: dict) -> 
         raise HTTPException(status_code=500, detail=f"Error updating carrier: {str(e)}")
 
 
-
-
+# CRUD operations for get carrier profile
 def get_carrier_profile_crud(db: Session, carrier_email: str):
     """
     Retrieve an carrier from the database based on their email.
@@ -70,6 +70,7 @@ def get_carrier_profile_crud(db: Session, carrier_email: str):
         raise Exception(f"Database error while retrieving carrier: {str(e)}")
 
 
+# CRUD operations for get carrier's profile list
 def get_all_carriers_list_crud(db: Session):
     """
     Retrieve all carriers from the database.
@@ -83,6 +84,7 @@ def get_all_carriers_list_crud(db: Session):
         raise Exception(f"Database error while retrieving all carriers: {str(e)}")
 
 
+# CRUD operations for suspen/active carrier
 def suspend_or_activate_carrier_crud(db: Session, carrier_email: str, active_flag: int, remarks: str):
     """CRUD operation to suspend or activate a carrier."""
     try:
@@ -105,23 +107,3 @@ def suspend_or_activate_carrier_crud(db: Session, carrier_email: str, active_fla
     except Exception as e:
         db.rollback()  # Rollback if there is any error
         raise Exception(f"Error in updating carrier status: {str(e)}")
-
-
-def soft_delete_carrier_crud(db: Session, carrier_email: str):
-    """Soft delete the carrier by setting the 'deleted' flag to True."""
-    carrier = db.query(Carrier).filter(Carrier.carrier_email == carrier_email).first()
-    
-    if not carrier:
-        # Return a custom exception if the carrier is not found
-        raise HTTPException(status_code=404, detail="Carrier not found")
-    
-    # Set the deleted flag and mark the deletion time
-    carrier.deleted = True
-    carrier.deleted_at = datetime.utcnow()
-    
-    # Add and commit the changes to the database
-    db.add(carrier)
-    db.commit()
-    
-    # Return the updated carrier as confirmation
-    return carrier

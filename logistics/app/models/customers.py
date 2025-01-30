@@ -37,9 +37,7 @@ class Customer(Base):
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     active_flag = Column(Integer, default= 1)
-    deleted = Column(Boolean, default=False)
-    deleted_at = Column(DateTime, nullable=True)
-
+   
     # Relationship with bookings
     bookings = relationship('Bookings', back_populates='customer', foreign_keys=[Bookings.customer_id], cascade="all, delete-orphan")
     # Relationship with address books
@@ -90,7 +88,6 @@ class CustomerCredential(Base):
     customer_id = Column(Integer, ForeignKey('customer.customer_id'))  # Added customer_id field
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    is_active = Column(Boolean, default=True, comment="Indicates if the customer is active or not")
 
     customer = relationship("Customer", back_populates="customer_credentials")
 
@@ -108,7 +105,6 @@ class CustomerMargin(Base):
     customer_id = Column(Integer, ForeignKey('customer.customer_id'))  # Added customer_id field
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    is_active = Column(Boolean, default=True, comment="Indicates if the customer is active or not")
 
     customer = relationship("Customer", back_populates="customer_margins")
 
@@ -127,7 +123,6 @@ class CustomerPayments(Base):
     customer_id = Column(Integer, ForeignKey('customer.customer_id'))  # Added customer_id field
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    is_active = Column(Boolean, default=True, comment="Indicates if the customer is active or not")
 
     customer = relationship("Customer", back_populates="customer_payments")
     booking = relationship("Bookings", back_populates="customer_payments")

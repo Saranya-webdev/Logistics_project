@@ -97,15 +97,4 @@ class SuspendOrActiveResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
-class DeleteRequest(BaseModel):
-    carrier_email: str
-    
-class DeleteResponse(BaseModel):
-    carrier_id: int
-    carrier_name: str
-    carrier_email: str
-
-
-    class Config:
-        from_attributes = True          
+     
