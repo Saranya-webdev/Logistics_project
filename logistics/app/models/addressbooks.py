@@ -2,6 +2,7 @@ from sqlalchemy import Integer, String, Column, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from app.models.base import Base
 from sqlalchemy.orm import relationship
+from app.models.bookings import Bookings
 
 # Address Book Model
 class AddressBook(Base):
@@ -33,6 +34,10 @@ class AddressBook(Base):
         back_populates="address_books", 
         primaryjoin="AddressBook.customer_id == Customer.customer_id"
     )
+
+    # Relationships with Bookings
+    # bookings_from = relationship("Bookings", foreign_keys="[Bookings.from_address_id]", back_populates="from_address", overlaps="from_address")
+    # bookings_to = relationship("Bookings", foreign_keys="[Bookings.to_address_id]", back_populates="to_address", overlaps="to_address")
 
     class Config:
         orm_mode = True

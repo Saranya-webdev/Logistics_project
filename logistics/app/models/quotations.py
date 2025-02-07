@@ -2,7 +2,7 @@ from sqlalchemy import Integer, Column, DateTime, ForeignKey, Enum, DECIMAL, Dat
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.models.base import Base
-from app.models.enums import PickupMethod, PickupStatus, PackageType
+from app.models.enums import PickupMethod, BookingStatus, PackageType
 from app.models.bookings import Bookings
 
 
@@ -14,15 +14,15 @@ class Quotations(Base):
     customer_id = Column(Integer, ForeignKey('customer.customer_id'))  # Reference to Customer
     created_by = Column(Integer, ForeignKey("customer.customer_id"))  # Reference to Customer (could be the creator)
     pickup_method = Column(Enum(PickupMethod), nullable=False, name='pickup_method')
-    status = Column(Enum(PickupStatus), default=PickupStatus.pending, nullable=False, name='status')  # Default value for 'status'
+    status = Column(Enum(BookingStatus), default=BookingStatus.pending, nullable=False, name='status')  # Default value for 'status'
     valid_until = Column(Date, nullable=False)
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    quotation_status = Column(Enum(PickupStatus), nullable=True)
+    quotation_status = Column(Enum(BookingStatus), nullable=True)
 
     # Correct relationships with foreign_keys argument
     quotation_items = relationship("QuotationItems", back_populates="quotation", cascade="all, delete-orphan")
-    bookings = relationship('Bookings', back_populates='quotation', foreign_keys=[Bookings.quotation_id])  # Specify foreign key
+    # bookings = relationship('Bookings', back_populates='quotation', foreign_keys=[Bookings.quotation_id])  # Specify foreign key
 
     customer = relationship('Customer', back_populates='quotations', foreign_keys=[customer_id])
 

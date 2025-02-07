@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional
-from app.models.enums import PickupMethod, PickupStatus, PackageType
+from app.models.enums import PickupMethod, BookingStatus, PackageType
 
 # Quotation Models
 class QuotationItemBase(BaseModel):
@@ -25,7 +25,7 @@ class QuotationBase(BaseModel):
     customer_id: int
     created_by: int
     pickup_method: PickupMethod
-    booking_status: PickupStatus = PickupStatus.pending
+    booking_status: BookingStatus = BookingStatus.pending
     valid_until: datetime
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -37,7 +37,7 @@ class QuotationUpdate(BaseModel):
     customer_id: Optional[int] = None
     created_by: Optional[int] = None
     pickup_method: Optional[PickupMethod] = None
-    booking_status: Optional[PickupStatus] = None
+    booking_status: Optional[BookingStatus] = None
     valid_until: Optional[datetime] = None
 
     class Config:

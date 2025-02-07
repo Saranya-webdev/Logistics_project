@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.databases.mysqldb import get_db
 import logging
-from app.schemas.thisaiprofiles import AssociatesCreate, AssociatesResponse, AssociatesUpdateResponse, AssociatesUpdate,SuspendOrActiveRequest,SuspendOrActiveResponse, VerifyStatusRequest, VerifyStatusResponse
-from app.service.thisaiprofiles import create_associates_service, update_associates_service, suspend_or_activate_associates_service,verify_associate_service, get_associates_profile_service, get_associatess_profile_list
+from app.schemas.thisaiprofiles import AssociatesCreate, AssociatesResponse, AssociatesUpdateResponse, AssociatesUpdate,SuspendOrActiveRequest,SuspendOrActiveResponse, VerifyStatusRequest, VerifyStatusResponse, AssociatesCredentialCreate,AssociatesCredentialResponse, AssociatesPasswordUpdate
+from app.service.thisaiprofiles import create_associates_service, update_associates_service, suspend_or_activate_associates_service,verify_associate_service, get_associates_profile_service, get_associatess_profile_list, create_associates_credential_service,update_associates_password_service
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,53 @@ async def create_new_associates(
         )
 
 
+@router.post("/associates-credentials/", response_model=AssociatesCredentialResponse)
+def create_associates_credential(
+    associates_data: AssociatesCredentialCreate,  
+    db: Session = Depends(get_db)
+):
+    """API to create associates credentials"""
+    try:
+       associates_credential = create_associates_credential_service(
+        db, 
+        associates_data.associates_id, 
+        associates_data.associates_email, 
+        associates_data.password
+       )
+
+       if not associates_credential:
+        raise HTTPException(status_code=400, detail="associates ID and Email do not match.")
+
+       return AssociatesCredentialResponse(
+        associates_credential_id=associates_credential.associates_credential_id,
+        associates_id=associates_credential.associates_id,
+        email_id=associates_credential.email_id,  
+        password=associates_credential.password  #  Consider removing from response for security
+       )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while creating associate status: {str(e)}"
+        )
+
+
+@router.put("/associates/update-password", response_model=dict)
+def update_associates_password(data: AssociatesPasswordUpdate, db: Session = Depends(get_db)):
+    """API endpoint to update an associate's password."""
+    try:
+        updated_credential = update_associates_password_service(db, data.associates_id, data.new_password)
+        
+        return {
+            "message": "Password updated successfully",
+            "associates_id": updated_credential.associates_id
+        }
+    
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+    
 
 @router.post("/suspend-or-activate/", response_model=SuspendOrActiveResponse)
 async def update_associates_status(

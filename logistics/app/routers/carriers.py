@@ -12,16 +12,23 @@ router = APIRouter()
 
 @router.post("/createcarrier/", response_model=CarrierResponse)
 async def create_new_carrier(
-    carrier_data: CarrierCreate,  # Carrier data will be passed in the request body
-    db: Session = Depends(get_db)  # Database session dependency
+    carrier_data: CarrierCreate,  
+    db: Session = Depends(get_db)  
 ):  
     """
     Endpoint to create a new carrier. It validates the required fields and creates the carrier in the system.
     """
-    result = create_carrier_service(db, carrier_data.dict())
-    if "Error" in result["message"]:
+    try:
+       result = create_carrier_service(db, carrier_data.dict())
+       if "Error" in result["message"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result["message"])
-    return result
+       return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while creating carrier : {str(e)}"
+        )
+    
 
     
 @router.put("/updatecarrier", response_model=CarrierUpdateResponse, status_code=status.HTTP_200_OK)
@@ -29,17 +36,20 @@ async def update_carrier(carrier_data: CarrierUpdate, db: Session = Depends(get_
     """
     Route for updating an carrier's details using the request body.
     """
-    if not carrier_data.carrier_email:  # Ensure proper field name is used
+    try:
+       if not carrier_data.carrier_email:  # Ensure proper field name is used
         raise HTTPException(status_code=400, detail="carrier email is required for update.")
 
-    carrier_data_dict = carrier_data.dict()
+       carrier_data_dict = carrier_data.dict()
 
-    updated_carrier = update_carrier_service(db, carrier_data.carrier_email, carrier_data_dict)  # Passing email separately
+       updated_carrier = update_carrier_service(db, carrier_data.carrier_email, carrier_data_dict)  # Passing email separately
 
-    if "message" in updated_carrier:
+
+    except:
+       if "message" in updated_carrier:
         raise HTTPException(status_code=400, detail=updated_carrier["message"])
-
-    return updated_carrier
+       return updated_carrier
+    
 
 
 

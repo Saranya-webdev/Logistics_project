@@ -187,4 +187,20 @@ class VerifyStatusResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class CustomerCredentialCreate(BaseModel):
+    customer_id: int
+    customer_email: str
+    password: str
+
+class CustomerCredentialResponse(BaseModel):
+    customer_credential_id: int
+    customer_id: int
+    email_id: str
      
+    class Config:
+        from_attributes = True 
+
+class CustomerPasswordUpdate(BaseModel):
+    customer_id: int
+    new_password: str                

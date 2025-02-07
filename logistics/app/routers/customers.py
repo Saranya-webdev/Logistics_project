@@ -9,12 +9,15 @@ from app.schemas.customers import (
     VerifyStatusRequest,
     VerifyStatusResponse,
     SuspendOrActiveRequest,
-    SuspendOrActiveResponse
+    SuspendOrActiveResponse,
+    CustomerCredentialCreate,
+    CustomerCredentialResponse,
+    CustomerPasswordUpdate
 )
 from app.databases.mysqldb import get_db
 import logging
 
-from app.service.customers import create_customer_service, suspend_or_activate_customer_service, verify_corporate_customer_service, get_customer_profile_service, get_customers_list_service, get_customer_with_booking_details_service,get_customer_with_booking_list_service, update_customer_service
+from app.service.customers import create_customer_service, suspend_or_activate_customer_service, verify_corporate_customer_service, get_customer_profile_service, get_customers_list_service, get_customer_with_booking_details_service,get_customer_with_booking_list_service, update_customer_service, create_customer_credential_service, update_customer_password_service
 
 
 router = APIRouter() 
@@ -35,7 +38,54 @@ async def create_customer(customer: CustomerCreate, db: Session = Depends(get_db
     except Exception as e:
         logger.error(f"Error creating customer: {str(e)}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error creating customer: {str(e)}")
+    
 
+@router.post("/customer-credentials/", response_model=CustomerCredentialResponse)
+def create_customer_credential(
+    customer_data: CustomerCredentialCreate,  
+    db: Session = Depends(get_db)
+):
+    """API to create customer credentials"""
+    try:
+        customer_credential = create_customer_credential_service(
+        db, 
+        customer_data.customer_id, 
+        customer_data.customer_email, 
+        customer_data.password
+        )
+        if not customer_credential:
+          raise HTTPException(status_code=400, detail="Customer ID and Email do not match.")
+
+        return CustomerCredentialResponse(
+        customer_credential_id=customer_credential.customer_credential_id,
+        customer_id=customer_credential.customer_id,
+        email_id=customer_credential.email_id,  
+        password=customer_credential.password  #  Consider removing from response for security
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while creating a customer : {str(e)}"
+        )
+
+
+@router.put("/customer/update-password", response_model=dict)
+def update_customer_password(data: CustomerPasswordUpdate, db: Session = Depends(get_db)):
+    """API endpoint to update an associate's password."""
+    try:
+        updated_credential = update_customer_password_service(db, data.customer_id, data.new_password)
+        
+        return {
+            "message": "Password updated successfully",
+            "customer_id": updated_credential.customer_id
+        }
+    
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+    
 
 
 @router.post("/suspend-or-activate/", response_model=SuspendOrActiveResponse)
@@ -89,8 +139,6 @@ async def update_customer_status(
         )
 
 
-
-
 @router.get("/customer/{customer_email}")
 def get_customer_profile(customer_email: str, db: Session = Depends(get_db)):
     """Endpoint to retrieve customer profile by email."""
@@ -103,7 +151,6 @@ def get_customer_profile(customer_email: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="An error occurred while retrieving the customer profile")
     
 
-
 @router.get("/customerprofilelist/")
 def get_customer_profile_list(db: Session = Depends(get_db)):
     """Endpoint to retrieve customer profile by email."""
@@ -115,7 +162,6 @@ def get_customer_profile_list(db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail="An error occurred while retrieving the customers profile list")
    
-
 
 # Get customer with booking list
 @router.get("/{customer_email}/bookinglist", response_model=CustomerBookingListResponse)
@@ -133,10 +179,7 @@ def get_customer_booking_list(customer_email: str, db: Session = Depends(get_db)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-
-
-
-# # Get customer booking details
+#  Get customer booking details
 @router.get("/customer/{customer_id}/booking/{booking_id}")
 def get_customer_with_booking_details(
     customer_id: int, booking_id: int, db: Session = Depends(get_db)
@@ -160,14 +203,16 @@ async def update_customer(customer_data: CustomerUpdate, db: Session = Depends(g
     """
     Route for updating an customer's details using the request body.
     """
-    if not customer_data.customer_email:
-        raise HTTPException(status_code=400, detail="customer email is required for update.")
+    try:
+       if not customer_data.customer_email:
+         raise HTTPException(status_code=400, detail="customer email is required for update.")
 
-    customer_data_dict = customer_data.dict()
+       customer_data_dict = customer_data.dict()
 
-    updated_customer = update_customer_service(db, customer_data_dict)
+       updated_customer = update_customer_service(db, customer_data_dict)
 
-    if "message" in updated_customer:
-        raise HTTPException(status_code=400, detail=updated_customer["message"])
+    except:
+          if "message" in updated_customer:
+           raise HTTPException(status_code=400, detail=updated_customer["message"])
 
-    return updated_customer
+          return updated_customer

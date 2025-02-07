@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.schemas.addressbook import AddressBookCreate, AddressBookResponse, AddressBookUpdate
+from app.schemas.addressbook import AddressBookCreate, AddressBookResponse, AddressBookUpdate,AddressBooksListResponse
 from app.databases.mysqldb import get_db
 from typing import List
 from sqlalchemy.exc import IntegrityError
 from app.models.addressbooks import AddressBook
 from app.crud.addressbook import get_address_book, create_address_book, update_address_book, delete_address_book
-
+from app.service.bookings import get_all_addressbook_service
 router = APIRouter()
 
 # Create address book
@@ -30,10 +30,21 @@ async def get_address_book_api(address_id: int, db: Session = Depends(get_db)):
     return db_address    
 
 # GET all address books
-@router.get("/alladdressbooks", response_model=List[AddressBookResponse])
-def get_all_addresses_api(db: Session = Depends(get_db)):
-    addresses = db.query(AddressBook).all()
-    return addresses
+@router.get("/addressbooklist", response_model=AddressBooksListResponse)
+def get_all_bookings(db: Session = Depends(get_db)):
+    """API endpoint to fetch all bookings."""
+    try:
+        address_books = get_all_addressbook_service(db)
+
+        if not address_books:
+            return {"address_books": [], "message": "No addressbook found. Yet to create addressbook."}
+
+        return {"address_books": address_books, "message": "Addressbook fetched successfully"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching bookings: {str(e)}")
+
+
 
 # UPDATE address by ID
 @router.put("/{address_id}/updateaddressbook", response_model=AddressBookResponse, status_code=status.HTTP_200_OK)

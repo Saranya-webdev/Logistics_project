@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.schemas.agents import AgentCreate, AgentResponse, AgentUpdate, AgentUpdateResponse, SuspendOrActiveResponse, SuspendOrActiveRequest, VerifyStatusResponse, VerifyStatusRequest
+from app.schemas.agents import AgentCreate, AgentResponse, AgentUpdate, AgentUpdateResponse, SuspendOrActiveResponse, SuspendOrActiveRequest, VerifyStatusResponse, VerifyStatusRequest, AgentCredentialCreate, AgentCredentialResponse, AgentPasswordUpdate
 from app.databases.mysqldb import get_db
 import logging
-from app.service.agents import update_agent_service, verify_agent_service, suspend_or_activate_agent, get_agent_profile, get_all_agents_profile, create_agent_service
+from app.service.agents import update_agent_service, verify_agent_service, suspend_or_activate_agent, get_agent_profile, get_all_agents_profile, create_agent_service, create_agent_credential_service, update_agent_password_service
 
 router = APIRouter()
 
@@ -38,7 +38,55 @@ async def create_new_agent(agent_data: AgentCreate, db: Session = Depends(get_db
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred. Please try again later."
         )
+    
 
+@router.post("/agent-credentials/", response_model=AgentCredentialResponse)
+def create_agent_credential(
+    agent_data: AgentCredentialCreate,  
+    db: Session = Depends(get_db)
+):
+    """API to create agent credentials"""
+    try:
+    
+       agent_credential = create_agent_credential_service(
+       db, 
+       agent_data.agent_id, 
+       agent_data.agent_email, 
+       agent_data.password
+       )
+
+       if not agent_credential:
+          raise HTTPException(status_code=400, detail="agent ID and Email do not match.")
+
+       return AgentCredentialResponse(
+        agent_credential_id=agent_credential.agent_credential_id,
+        agent_id=agent_credential.agent_id,
+        email_id=agent_credential.email_id,  
+        password=agent_credential.password  #  Consider removing from response for security
+        )
+    except Exception as e:
+        logger.error(f"Error while creating agent's credentails: {str(e)}")
+        db.rollback()
+        raise
+
+
+@router.put("/agent/update-password", response_model=dict)
+def update_agent_password(data: AgentPasswordUpdate, db: Session = Depends(get_db)):
+    """API endpoint to update an associate's password."""
+    try:
+        updated_credential = update_agent_password_service(db, data.agent_id, data.new_password)
+        
+        return {
+            "message": "Password updated successfully",
+            "agent_id": updated_credential.agent_id
+        }
+    
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+    
 
 @router.post("/suspend-or-activate/", response_model=SuspendOrActiveResponse)
 async def update_agent_status(

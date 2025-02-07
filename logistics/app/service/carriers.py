@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.models.carriers import Carrier
-from app.utils import check_existing_by_email
+from app.utils.utils import check_existing_by_email
 import logging
 from fastapi import HTTPException, status
 from app.crud.carriers import create_carrier_crud, update_carrier_crud, suspend_or_activate_carrier_crud, get_carrier_profile_crud, get_all_carriers_list_crud

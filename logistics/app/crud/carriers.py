@@ -2,7 +2,7 @@ from app.models.carriers import Carrier  # Correct import
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 import logging
-from app.utils import log_and_raise_exception  # Correct import
+from app.utils.utils import log_and_raise_exception  # Correct import
 from typing import Optional
 from datetime import datetime
 

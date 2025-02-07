@@ -157,3 +157,20 @@ class VerifyStatusResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class AgentCredentialCreate(BaseModel):
+    agent_id: int
+    agent_email: str
+    password: str
+
+class AgentCredentialResponse(BaseModel):
+    agent_credential_id: int
+    agent_id: int
+    email_id: str
+     
+    class Config:
+        from_attributes = True 
+
+class AgentPasswordUpdate(BaseModel):
+    agent_id: int
+    new_password: str          
