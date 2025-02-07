@@ -3,7 +3,7 @@ from sqlalchemy import Integer, String, Column, DateTime, ForeignKey, Date, Time
 from sqlalchemy.sql import func
 from app.models.base import Base
 from sqlalchemy.orm import relationship
-from app.models.enums import PickupStatus, PackageType, PaymentStatus
+from app.models.enums import BookingStatus, PackageType, PaymentStatus
 
 # Booking Model
 class Bookings(Base):
@@ -37,21 +37,28 @@ class Bookings(Base):
     booking_date = Column(DateTime, nullable=False, default=func.now())
     pickup_date = Column(Date, nullable=True)
     pickup_time = Column(Time, nullable=True)
-    drop_time = Column(Time, nullable=True)
-    drop_location = Column(String(255))
+    # drop_time = Column(Time, nullable=True)
+    # drop_location = Column(String(255))
     booking_by = Column(Integer, ForeignKey("customer.customer_id"))
     total_cost = Column(DECIMAL(10, 2), nullable=False)
-    booking_status = Column(SQLEnum(PickupStatus, name="pickup_status_enum"), nullable=True)
-    payment_status = Column(SQLEnum(PaymentStatus, name="payment_status_enum"), default=PaymentStatus.picked, nullable=False)
+    booking_status = Column(SQLEnum(BookingStatus, name="booking_status_enum"), default=BookingStatus.pending,nullable=True)
+    payment_status = Column(SQLEnum(PaymentStatus, name="payment_status_enum"), default=PaymentStatus.picked,nullable=False)
+    active_flag = Column(Integer, default=1)
     
     customer_id = Column(Integer, ForeignKey('customer.customer_id'))
-    quotation_id = Column(Integer, ForeignKey('quotation.quotation_id'))
+    # quotation_id = Column(Integer, ForeignKey('quotation.quotation_id'))
+
+    # Adding foreign keys to reference the AddressBook table
+    # from_address_id = Column(Integer, ForeignKey('address_books.address_id'), nullable=False)
+    # to_address_id = Column(Integer, ForeignKey('address_books.address_id'), nullable=False)
 
     # Relationships
     customer = relationship("Customer", back_populates="bookings", foreign_keys=[customer_id])
     booking_items = relationship("BookingItem", back_populates="booking")
     customer_payments = relationship("CustomerPayments", back_populates="booking")
-    quotation = relationship("Quotations", back_populates="bookings", foreign_keys=[quotation_id])
+    # quotation = relationship("Quotations", back_populates="bookings", foreign_keys=[quotation_id])
+
+
     
 
     class Config:
@@ -67,9 +74,9 @@ class BookingItem(Base):
     item_width = Column(DECIMAL(10, 2), nullable=False)
     item_height = Column(DECIMAL(10, 2), nullable=False)
     item_weight = Column(DECIMAL(10, 2), nullable=False)
-    volumetric_weight = Column(DECIMAL(10, 2), nullable=False)
+    # volumetric_weight = Column(DECIMAL(10, 2), nullable=True)
     booking_id = Column(Integer, ForeignKey("booking.booking_id"), nullable=False)
-    package_type = Column(SQLEnum(PackageType, name="package_type_enum"), nullable=False)
+    package_type = Column(String(255), nullable=False)
     package_cost = Column(DECIMAL(10, 2), nullable=False)
     
     # Relationship back to Booking

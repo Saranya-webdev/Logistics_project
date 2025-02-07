@@ -16,11 +16,11 @@ class PickupMethod(Enum):
     drop_point = 'drop_point'
 
 class PackageType(Enum):
-    Box = 'Box'
-    Envelope = 'Envelope'
-    Other = 'other'
+    Document = 'Document'
+    NonDocument = 'Non-Document'
 
-class PickupStatus(Enum):
+
+class BookingStatus(Enum):
     pending = 'pending'
     confirmed = 'confirmed'
     shipped = 'shipped'

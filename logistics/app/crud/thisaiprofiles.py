@@ -1,10 +1,8 @@
-from app.models.thisaiprofiles import Associate  # Correct import
+from app.models.thisaiprofiles import Associate, AssociatesCredential
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 import logging
-from app.utils import log_and_raise_exception  # Correct import
-from typing import Optional
-from datetime import datetime
+
 
 
 logger = logging.getLogger(__name__)
@@ -36,6 +34,41 @@ def create_associates_crud(db: Session, associates_data: dict) -> Associate:
         logger.error(f"Error in associates CRUD operation: {str(e)}")
         db.rollback()
         raise HTTPException(status_code=500, detail="Error creating associate in database")
+    
+
+# CRUD operations for create associate'S credentail (Mysql db)
+def create_associates_credential(db: Session, associates_id: int, email_id: str, password: str):
+    """Inserts a new associates credential into the database."""
+    try:
+        associates_credential = AssociatesCredential(
+            associates_id=associates_id,  
+            email_id=email_id,  #  Ensure this matches the associatesCredential table
+            password=password  
+        )
+
+        db.add(associates_credential)
+        db.commit()
+        db.refresh(associates_credential)
+        return associates_credential
+    except Exception as e:
+        db.rollback()
+        raise Exception(f"Database error: {e}")
+    
+
+# CRUD operations for create associate'S credentail (Mysql db)
+def update_associates_password_crud(db: Session, credential: AssociatesCredential, hashed_password: str):
+    """Updates an associate's password in the database."""
+    try:
+        credential.password = hashed_password  # Update the password field
+
+        db.commit()  # Commit transaction
+        db.refresh(credential)  # Refresh instance from DB
+
+        return credential
+    except Exception as e:
+        db.rollback()  # Rollback in case of failure
+        raise Exception(f"Database error while updating password: {e}")
+
 
 
 # CRUD operations for update associate

@@ -1,14 +1,15 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from app.models.customers import Customer, CustomerBusiness
+from app.models.customers import Customer, CustomerBusiness, CustomerCredential
 from app.models.bookings import Bookings
 from app.models.enums import VerificationStatus, Type
 from sqlalchemy.exc import IntegrityError
-from app.utils import check_existing_by_email
+from app.utils.utils import check_existing_by_email,get_credential_by_id, check_existing_by_id_and_email
 import logging
 import json
-from app.crud.customers import create_customer_crud,suspend_or_active_customer_crud,verify_corporate_customer_crud, get_customer_profile_crud, get_customer_profile_list_crud, get_customer_with_booking_details_crud,get_customer_with_booking_list_crud, update_customer_crud
-from fastapi.responses import JSONResponse
+import bcrypt
+from app.crud.customers import create_customer_crud,suspend_or_active_customer_crud,verify_corporate_customer_crud, get_customer_profile_crud, get_customer_profile_list_crud, get_customer_with_booking_details_crud,get_customer_with_booking_list_crud, update_customer_crud, create_customer_credential, update_customer_password_crud
+
 
 logger = logging.getLogger(__name__)
 
@@ -56,26 +57,7 @@ def create_customer_service(db: Session, customer_data: dict) -> dict:
                 }
             print(f"Business data before commit: {business_data}")
             print(f"Returning business details: {business_details}")
-            print(f"json formt : {json.dumps(business_details)}")
-            # Return the response with business details for corporate customer
-            # return {
-            #     "customer_id": new_customer.customer_id,
-            #     "customer_name": new_customer.customer_name,
-            #     "customer_email": new_customer.customer_email,
-            #     "customer_mobile": new_customer.customer_mobile,
-            #     "customer_address": new_customer.customer_address,
-            #     "customer_city": new_customer.customer_city,
-            #     "customer_state": new_customer.customer_state,
-            #     "customer_country": new_customer.customer_country,
-            #     "customer_pincode": new_customer.customer_pincode,
-            #     "customer_geolocation": new_customer.customer_geolocation,
-            #     "customer_type": new_customer.customer_type,
-            #     "customer_category": new_customer.customer_category,
-            #     "verification_status": VerificationStatus.pending,
-            #     "remarks": new_customer.remarks,
-            #     "active_flag": new_customer.active_flag,
-            #     "business_details": json.dumps(business_details),  # Serialized business details
-            # }
+
             response_data =  {
                 "customer_id": new_customer.customer_id,
                 "customer_name": new_customer.customer_name,
@@ -136,12 +118,51 @@ def create_customer_service(db: Session, customer_data: dict) -> dict:
         return {"message": f"Database error: {str(e)}"}
     except Exception as e:
         return {"message": f"Unexpected error while creating customer: {str(e)}"}
+    
 
+def create_customer_credential_service(db: Session, customer_id: int, customer_email: str, password: str):
+    """Business logic for creating customer credentials"""
+    try:
+        #  Look up customer using ID and email
+        customer = check_existing_by_id_and_email(db, Customer, "customer_id", "customer_email", customer_id, customer_email)
+        
+        if not customer:
+            print("Customer ID and Email do not match. Cannot create credentials.")
+            return None  # Or raise an exception
+
+        #  Hash the password before storing it
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
+        
+        return create_customer_credential(db, customer.customer_id, customer.customer_email, hashed_password)
+
+    except Exception as e:
+        print(f"Error in service layer: {e}")
+        return None
+    
+
+def update_customer_password_service(db: Session, customer_id: int, new_password: str):
+    """Business logic for updating an associate's password."""
+    try:
+        # Fetch the credential using the generic function
+        credential = get_credential_by_id(db, CustomerCredential, "customer_id", customer_id)
+
+        if not credential:
+            raise ValueError("Associate credential not found.")
+
+        # Hash the new password securely
+        hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+        # Call CRUD function with hashed password
+        return update_customer_password_crud(db, credential, hashed_password)
+    except ValueError as e:
+        raise ValueError(str(e))  # Pass custom error
+    except Exception as e:
+        raise Exception(f"Service error while updating password: {e}")        
 
 
 def update_customer_service(db: Session, customer_data: dict) -> dict:
     """Business logic for updating a customer's details based on customer email."""
-
 
     try:
         # Step 1: Check if the customer exists based on email
@@ -236,23 +257,32 @@ def suspend_or_activate_customer_service(
         )
 
     # Retrieve the customer
-    customer = db.query(Customer).filter(Customer.customer_email == customer_email).first()
+    customer = suspend_or_active_customer_crud(db, customer_email, active_flag, remarks)
 
     if not customer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
 
     # If the customer is an individual, keep status unchanged
     if active_flag == 0:
+        # Individual customers must always have `verification_status = none`
         customer.active_flag = 0
-        customer.verification_status = VerificationStatus.none  # Always None for individuals
+        customer.verification_status = VerificationStatus.none  
     else:
         # Corporate Customer - Update accordingly
         if active_flag == 1:
-            customer.active_flag = 1
-            customer.verification_status = VerificationStatus.verified  # Verified corporate
+           customer.active_flag = 1
+           customer.verification_status = VerificationStatus.verified  # Verified corporate
         elif active_flag == 2:
-            customer.active_flag = 2
-            customer.verification_status = VerificationStatus.pending  # Pending corporate
+             customer.active_flag = 2
+        # Ensure that once verified, it remains verified
+        if customer.verification_status != VerificationStatus.verified:
+            customer.verification_status = VerificationStatus.pending  # Only update if not already verified
+
+            # **Final Validation to Enforce Individual Customer Rules**
+        if customer.active_flag == 0:
+           customer.verification_status = VerificationStatus.none  # Always None for individuals
+
+
 
     # Update remarks
     customer.remarks = remarks
@@ -305,28 +335,23 @@ def verify_corporate_customer_service(
             detail="Verification status is only applicable for corporate customers."
         )
 
-    # Update active_flag based on verification_status
-    if verification_status == VerificationStatus.verified:
-        existing_customer.active_flag = 1
-    elif verification_status == VerificationStatus.pending:
-        existing_customer.active_flag = 2
+    # Determine active_flag based on verification_status
+    active_flag = 1 if verification_status == VerificationStatus.verified else 2
 
-    existing_customer.verification_status = verification_status
-
-    # Commit changes
-    db.commit()
-    db.refresh(existing_customer)
+    # Call the CRUD function to update the customer
+    updated_customer = verify_corporate_customer_crud(db, existing_customer, active_flag, verification_status)
 
     return {
-        "customer_id": existing_customer.customer_id,
-        "customer_name": existing_customer.customer_name,
-        "customer_email": existing_customer.customer_email,
-        "customer_mobile": existing_customer.customer_mobile,
-        "verification_status": existing_customer.verification_status,
-        "remarks": existing_customer.remarks,
-        "active_flag": existing_customer.active_flag,
+        "customer_id": updated_customer.customer_id,
+        "customer_name": updated_customer.customer_name,
+        "customer_email": updated_customer.customer_email,
+        "customer_mobile": updated_customer.customer_mobile,
+        "verification_status": updated_customer.verification_status,
+        "remarks": updated_customer.remarks,
+        "active_flag": updated_customer.active_flag,
         "message": "Customer verification status updated successfully."
     }
+
 
 
 def get_customer_profile_service(db: Session, customer_email: str) -> dict:

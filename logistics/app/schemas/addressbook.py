@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 
 # Address Book Models
@@ -22,14 +22,17 @@ class AddressBookCreate(AddressBase):
     Pydantic model for receiving input data for creating an address book.
     This can be used for AddressBook insertions.
     """
-    pass
+    city: str
+    state: str
+    country: str
+    postal_code: str
+    
 
 class AddressBookResponse(AddressBase):
     """
     Pydantic model for representing the response data for an address book.
     """
     address_id: int
-    created_at: datetime
 
     class Config:
         from_attributes = True
@@ -50,3 +53,13 @@ class AddressBookUpdate(BaseModel):
 
     class Config:
         from_attributes = True
+
+class AddressBooksDetailedResponse(AddressBase):
+    address_book: List[AddressBookResponse]
+
+    class Config:
+        from_attributes = True
+
+class AddressBooksListResponse(BaseModel):
+    address_books: List[AddressBookResponse]  
+    message: str

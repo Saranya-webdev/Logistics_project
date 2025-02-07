@@ -1,13 +1,11 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
-from app.models.customers import Customer,CustomerBusiness
+from app.models.customers import Customer,CustomerBusiness,CustomerCredential
 from app.models.enums import  Category, Type
 from app.models.bookings import Bookings
-from app.utils import  populate_dynamic_entries
+from app.utils.utils import  populate_dynamic_entries
 import logging
-from datetime import datetime
-from typing import Optional
 
 
 logger = logging.getLogger(__name__)
@@ -33,9 +31,9 @@ def create_customer_crud(db: Session, customer_data: dict, business_data: dict =
             customer_state=customer_data["customer_state"],
             customer_country=customer_data["customer_country"],
             customer_pincode=customer_data["customer_pincode"],
-            customer_geolocation=customer_data.get("customer_geolocation"),  # Optional field
+            customer_geolocation=customer_data.get("customer_geolocation"), 
             customer_type=customer_data["customer_type"],  # Must be 'individual' or 'corporate'
-            customer_category=customer_data.get("customer_category")  # Optional field
+            customer_category=customer_data.get("customer_category")  
         )
 
         db.add(new_customer)
@@ -72,6 +70,39 @@ def create_customer_crud(db: Session, customer_data: dict, business_data: dict =
     except Exception as e:
         db.rollback()
         raise Exception(f"Unexpected error: {str(e)}")
+    
+# CRUD operation for create customer's credential    
+def create_customer_credential(db: Session, customer_id: int, email_id: str, password: str):
+    """Inserts a new customer credential into the database."""
+    try:
+        customer_credential = CustomerCredential(
+            customer_id=customer_id,  
+            email_id=email_id,  #  Ensure this matches the CustomerCredential table
+            password=password  
+        )
+
+        db.add(customer_credential)
+        db.commit()
+        db.refresh(customer_credential)
+        return customer_credential
+    except Exception as e:
+        db.rollback()
+        raise Exception(f"Database error: {e}")
+    
+
+# CRUD operation for update customer's password
+def update_customer_password_crud(db: Session, credential: CustomerCredential, hashed_password: str):
+    """Updates an associate's password in the database."""
+    try:
+        credential.password = hashed_password  # Update the password field
+
+        db.commit()  # Commit transaction
+        db.refresh(credential)  # Refresh instance from DB
+
+        return credential
+    except Exception as e:
+        db.rollback()  # Rollback in case of failure
+        raise Exception(f"Database error while updating password: {e}")     
 
 
 # CRUD operation for get customer profile
@@ -120,19 +151,37 @@ def get_customer_profile_list_crud(db: Session) -> list:
 # CRUD operation for get customer with booking details
 def get_customer_with_booking_details_crud(db: Session, customer_id: int, booking_id: int):
     """Fetch a specific booking and its related items for a given customer."""
-    return db.query(Bookings).filter(
+    try:
+
+       return db.query(Bookings).filter(
         Bookings.customer_id == customer_id,
         Bookings.booking_id == booking_id
     ).first()
 
+    except Exception as e:
+        # Catch any other exceptions and raise a 500 error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving customer with booking details: {str(e)}"
+        )
+
 
 # CRUD operation for get customer's booking list
 def get_customer_with_booking_list_crud(db: Session, customer_id: int) -> list:
-    bookings = db.query(Bookings).filter(Bookings.customer_id == customer_id).all()
-    if not bookings:
-        logging.warning(f"No bookings found for customer_id {customer_id}")
-    return bookings
+    """CRUD function to get the customer with thier booking list from the database."""
+    try:
 
+       bookings = db.query(Bookings).filter(Bookings.customer_id == customer_id).all()
+       if not bookings:
+        logging.warning(f"No bookings found for customer_id {customer_id}")
+        return bookings
+    except Exception as e:
+        # Catch any other exceptions and raise a 500 error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving customer with thier booking list: {str(e)}"
+        )   
+       
 
 # CRUD operation for update customer
 def update_customer_crud(db: Session, customer_email: str, customer_data: dict):

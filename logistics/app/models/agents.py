@@ -52,7 +52,6 @@ class AgentCredential(Base):
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     # created_by = Column(Integer, ForeignKey("user.user_id"))
     # updated_by = Column(Integer, ForeignKey("user.user_id"))
-    active_flag = Column(Integer, default=1)
 
     agent = relationship("Agent", back_populates="agent_credentials")
 

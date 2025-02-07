@@ -1,11 +1,12 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
-from app.models.thisaiprofiles import Associate
+from app.models.thisaiprofiles import Associate,AssociatesCredential
 from app.models.enums import VerificationStatus
-from app.utils import check_existing_by_email
-from app.crud.thisaiprofiles import create_associates_crud, update_associates_crud, suspend_or_activate_associates_crud, verify_associate_crud,get_associates_profile_crud,get_associates_profiles_list_crud
+from app.utils.utils import check_existing_by_email, check_existing_by_id_and_email,get_credential_by_id
+from app.crud.thisaiprofiles import create_associates_crud, update_associates_crud, suspend_or_activate_associates_crud, verify_associate_crud,get_associates_profile_crud,get_associates_profiles_list_crud, create_associates_credential,  update_associates_password_crud
 import logging
+import bcrypt
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,47 @@ def create_associates_service(db: Session, associates_data: dict) -> dict:
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error creating associate: {str(e)}")
+    
+
+def create_associates_credential_service(db: Session, associates_id: int, associates_email: str, password: str):
+    """Business logic for creating Associates credentials"""
+    try:
+        #  Ensure correct model reference (Use `Associates` instead of `Associate`)
+        associates = check_existing_by_id_and_email(db, Associate, "associates_id", "associates_email", associates_id, associates_email)
+        
+        if not associates:
+            print("Associates ID and Email do not match. Cannot create credentials.")
+            return None  # Or raise an exception
+
+        #  Hash the password before storing it
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+        #  Call the correct function with the found associate's values
+        return create_associates_credential(db, associates.associates_id, associates.associates_email, hashed_password)
+
+    except Exception as e:
+        print(f"Error in service layer: {e}")
+        return None  
+    
+
+def update_associates_password_service(db: Session, associates_id: int, new_password: str):
+    """Business logic for updating an associate's password."""
+    try:
+        # Fetch the credential using the generic function
+        credential = get_credential_by_id(db, AssociatesCredential, "associates_id", associates_id)
+
+        if not credential:
+            raise ValueError("Associate credential not found.")
+
+        # Hash the new password securely
+        hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+        # Call CRUD function with hashed password
+        return update_associates_password_crud(db, credential, hashed_password)
+    except ValueError as e:
+        raise ValueError(str(e))  # Pass custom error
+    except Exception as e:
+        raise Exception(f"Service error while updating password: {e}")
 
 
 def update_associates_service(db: Session, associates_email: str, associates_data: dict) -> dict:
@@ -121,8 +163,6 @@ def suspend_or_activate_associates_service(db: Session, associates_email: str, a
         )
 
     
-
-
 def verify_associate_service(db: Session, associates_email: str, verification_status: str) -> dict:
     """
     Service method to verify the associate and update their verification status and active flag.

@@ -1,7 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from datetime import datetime, date, time
-from typing import List, Optional
-from app.models.enums import PickupMethod, PickupStatus, PackageType,RatingEnum
+from typing import List, Optional, Dict, Any
+from app.models.enums import PickupMethod, BookingStatus, PackageType
 
 class BookingSummary(BaseModel):
     booking_id: int
@@ -12,88 +12,145 @@ class BookingSummary(BaseModel):
     status: str
     action: str
 
-    class Config:
-        from_attributes = True
+    class ConFig:
+        From_attributes = True
             
 
-# Pydantic Models
 class BookingItemBase(BaseModel):
-    length: float
-    height: float
-    weight: float 
-    width: float
-    package_type: PackageType
-    cost: float
-    pickup_method: PickupMethod = PickupMethod.user_address
-    booking_status: PickupStatus = PickupStatus.pending
-    rating: RatingEnum = RatingEnum.Three
-
+    weight: str 
+    length: str  
+    width: str   
+    height: str  
+    package_type: str
+    pickup_date: str
+    package_count: int
     
 
 class BookingItemCreate(BookingItemBase):
     pass
 
-class BookingItemDetailedResponse(BookingItemBase):
+
+class BookingItemDetailedResponse(BaseModel):
     booking_id: int
     item_id: int
-    pickup_method: PickupMethod = PickupMethod.user_address
+    item_weight: float
+    item_length: float
+    item_width: float
+    item_height: float
+    package_type: str  # Ensure naming matches database field (`package_type_code`)
+    package_cost: float
+
 
     class Config:
         from_attributes = True
 
+
 class BookingBase(BaseModel):
-    customer_id: int
-    created_by: int
-    name: str
-    phone_number: str
-    email: str
+    from_name: str
+    from_mobile: str
+    from_email: str
     from_address: str
-    city: str
-    state: str
-    country: str
-    pincode: Optional[int] = None
+    from_city: str
+    from_state: str
+    from_pincode: str
+    from_country: str
     to_name: str
-    to_phone_number: str
+    to_mobile: str
     to_email: str
     to_address: str
     to_city: str
     to_state: str
+    to_pincode: str
     to_country: str
-    to_pincode: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    package_count: Optional[int] = None
-    estimated_delivery_cost: Optional[float] = None  # Match decimal(10,2)
-    estimated_delivery_date: Optional[datetime] = None
-    pickup_time: Optional[time] = None
-    pickup_date: Optional[date] = None
-    rating: Optional[RatingEnum] = None
+    carrier_plan: str
+    carrier_name: str
+    pickup_date: date
+    package_count: int
+    est_cost: float
+    total_cost: float
+    est_delivery_date: date
+    booking_date: date
+    # booking_status: str
+    customer_id: int
 
-    
 
-class BookingCreate(BookingBase):
-    booking_items: List[BookingItemCreate]
+class BookingItemList(BaseModel):
+    weight: float 
+    length: float 
+    width: float   
+    height: float
+    package_type: str
+    package_cost: float
+    # volumetric_weight: float
+
+
+class ShipFromAddress(BaseModel):
+    from_name: str
+    from_mobile: str
+    from_email: str
+    from_address: str
+    from_city: str
+    from_state: str
+    from_pincode: str
+    from_country: str
+
+class ShipToAddress(BaseModel):
+    to_name: str
+    to_mobile: str
+    to_email: str
+    to_address: str
+    to_city: str
+    to_state: str
+    to_pincode: str
+    to_country: str
+
+
+class PackageDetails(BaseModel):
+    carrier_plan: str
+    carrier_name: str
+    service_code: str
+    pickup_date: date
+    package_count: int
+    est_cost: float
+    total_cost: float
+    est_delivery_date: date
+    booking_date: date
+
+
+class BookingCreateRequeast(BaseModel):
+    customer_id: int
+    ship_to_address: ShipToAddress
+    ship_from_address: ShipFromAddress
+    package_details: PackageDetails
+    booking_items:List [BookingItemList]    
+
+
+# class BookingCreateResponse(BookingBase):
+#     booking_id: int
+#     booking_items: List[BookingItemList]
+
 
 class BookingDetailedResponse(BookingBase):
-    booking_id: int
     booking_items: List[BookingItemDetailedResponse]
-    payment_status: str  # Can be 'Picked', 'In Transit', 'Delivered', etc.
-    rating: Optional[RatingEnum] = None # Rating (1-5)
-   
 
     class Config:
         from_attributes = True
 
+class BookingListResponse(BaseModel):
+    message: str  
+    bookings: List[BookingDetailedResponse]
+          
+
 class BookingUpdate(BaseModel):
-    customer_id: Optional[int] = None
+    customer_id: int
     created_by: Optional[int] = None
-    pickup_method: PickupMethod = PickupMethod.user_address
-    booking_status: Optional[PickupStatus] = None
+    # pickup_method: PickupMethod = PickupMethod.user_address
+    booking_status: Optional[BookingStatus] = None
     package_type: Optional[PackageType] = None
     name: Optional[str] = None
     phone_number: Optional[str] = None
     email: Optional[str] = None
-    from_address: Optional[str] = None
+    From_address: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = None
@@ -113,7 +170,49 @@ class BookingUpdate(BaseModel):
     pickup_date: Optional[date] = None
     booking_items: Optional[List[BookingItemCreate]] = None
 
-    class Config:
-        from_attributes = True
+    class ConFig:
+        From_attributes = True
 
-        
+
+class Address(BaseModel):
+    Name: str
+    Mobile: str
+    Email: str
+    AddressLine_1: str
+    AddressLine_2: str
+    AddressLine_3: str
+    City: str
+    StateProvinceCode: str
+    PostalCode: str
+    CountryCode: str
+
+
+class ShippingRateRequest(BaseModel):
+    UserId: str
+    UserType: str
+    ship_to_address: Address
+    ship_from_address:Address
+    package_details: BookingItemBase
+    
+
+class ShippingRateResponse(BaseModel):
+    service_code: str
+    service_desc: str
+    service_name: str
+    transit_time: str
+    estimated_arrival_date: str
+    estimated_arrival_time: str
+    dayofweek: str
+    total_charges: float
+
+
+class ShipmentCreateResponse(BaseModel):
+    # status: str
+    shipment_id: str
+    tracking_number: str
+    total_charges: str
+    base_service_charge: Optional[str]
+    residential_surcharge: Optional[str]    
+
+    
+    

@@ -1,10 +1,11 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from app.models.agents import Agent
+from app.models.agents import Agent, AgentCredential
 from app.models.enums import VerificationStatus
-from app.utils import check_existing_by_email
-from app.crud.agents import create_agent_crud, update_agent_crud, suspend_or_active_agent_crud, verify_agent_crud, get_agent_profile_crud, get_all_agents_crud
+from app.utils.utils import check_existing_by_email,check_existing_by_id_and_email,get_credential_by_id
+from app.crud.agents import create_agent_crud, update_agent_crud, suspend_or_active_agent_crud, verify_agent_crud, get_agent_profile_crud, get_all_agents_crud,create_agent_credential,update_agent_password_crud
 import logging
+import bcrypt
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,48 @@ def create_agent_service(db: Session, agent_data: dict) -> dict:
         logger.error(f"Unexpected error: {str(e)}")
         db.rollback()
         return {"message": f"Error creating agent: {str(e)}"}
+    
+
+def create_agent_credential_service(db: Session, agent_id: int, agent_email: str, password: str):
+    """Business logic for creating agent credentials"""
+    try:
+        #  Pass the correct model class (Agent) instead of an undefined variable
+        agent = check_existing_by_id_and_email(db, Agent, "agent_id", "agent_email", agent_id, agent_email)
+        
+        if not agent:
+            print("Agent ID and Email do not match. Cannot create credentials.")
+            return None  # Or raise an exception
+
+        #  Hash the password before storing it
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
+        # Call the correct function to create the agent credentials
+        return create_agent_credential(db, agent.agent_id, agent.agent_email, hashed_password)
+
+    except Exception as e:
+        print(f"Error in service layer: {e}")
+        return None  
+    
+
+def update_agent_password_service(db: Session, agent_id: int, new_password: str):
+    """Business logic for updating an associate's password."""
+    try:
+        # Fetch the credential using the generic function
+        credential = get_credential_by_id(db, AgentCredential, "agent_id", agent_id)
+
+        if not credential:
+            raise ValueError("Associate credential not found.")
+
+        # Hash the new password securely
+        hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+        # Call CRUD function with hashed password
+        return update_agent_password_crud(db, credential, hashed_password)
+    except ValueError as e:
+        raise ValueError(str(e))  # Pass custom error
+    except Exception as e:
+        raise Exception(f"Service error while updating password: {e}")    
+
 
 
 def get_agent_profile(db: Session, agent_email: str) -> dict:

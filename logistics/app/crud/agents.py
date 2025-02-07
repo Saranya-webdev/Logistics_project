@@ -1,11 +1,10 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from app.models.agents import Agent, Category
+from app.models.agents import Agent, Category, AgentCredential
 from app.schemas.agents import AgentUpdateResponse
-from app.utils import log_and_raise_exception, populate_dynamic_entries
+from app.utils.utils import log_and_raise_exception, populate_dynamic_entries
 import logging
-from datetime import datetime
-from typing import Optional
+
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -20,16 +19,52 @@ def log_error(message: str, status_code: int):
 # CRUD operations for create Agent
 def create_agent_crud(db: Session, agent_data: dict) -> Agent:
     """Create a new agent in the database."""
-    # Create an Agent object using the data passed in
-    new_agent = Agent(**agent_data)
+    try:
+       # Create an Agent object using the data passed in
+       new_agent = Agent(**agent_data)
     
-    # Add the agent to the session and commit to the database
-    db.add(new_agent)
-    db.commit()
-    db.refresh(new_agent)
-    return new_agent
+       # Add the agent to the session and commit to the database
+       db.add(new_agent)
+       db.commit()
+       db.refresh(new_agent)
+       return new_agent
+    except Exception as e:
+        db.rollback()
+        raise Exception(f"Database error: {e}")
 
 
+def create_agent_credential(db: Session, agent_id: int, email_id: str, password: str):
+    """Inserts a new agent credential into the database."""
+    try:
+        agent_credential = AgentCredential(
+            agent_id=agent_id,  
+            email_id=email_id,  #  Ensure this matches the agentCredential table
+            password=password  
+        )
+
+        db.add(agent_credential)
+        db.commit()
+        db.refresh(agent_credential)
+        return agent_credential
+    except Exception as e:
+        db.rollback()
+        raise Exception(f"Database error: {e}")
+    
+
+def update_agent_password_crud(db: Session, credential: AgentCredential, hashed_password: str):
+    """Updates an associate's password in the database."""
+    try:
+        credential.password = hashed_password  # Update the password field
+
+        db.commit()  # Commit transaction
+        db.refresh(credential)  # Refresh instance from DB
+
+        return credential
+    except Exception as e:
+        db.rollback()  # Rollback in case of failure
+        raise Exception(f"Database error while updating password: {e}")    
+
+    
 # CRUD operations for get Agent profile
 def get_agent_profile_crud(db: Session, agent_email: str):
     """
@@ -98,19 +133,23 @@ def verify_agent_crud(db: Session, agent_email: str, verification_status: str, a
 # CRUD operations for suspend/active Agent
 def suspend_or_active_agent_crud(db: Session, agent_email: str, active_flag: int, remarks: str):
     """Suspend or activate agent in the database."""
-    agent = db.query(Agent).filter(Agent.agent_email == agent_email).first()
+    try:
+       agent = db.query(Agent).filter(Agent.agent_email == agent_email).first()
 
-    if not agent:
+       if not agent:
         return None
 
-    # Update the agent's status and remarks
-    agent.active_flag = active_flag
-    agent.remarks = remarks
+       # Update the agent's status and remarks
+       agent.active_flag = active_flag
+       agent.remarks = remarks
 
-    # Commit the changes to the database
-    db.commit()
-    db.refresh(agent)
-    return agent
+       # Commit the changes to the database
+       db.commit()
+       db.refresh(agent)
+       return agent
+    except Exception as e:
+        log_error(f"Error in suspend or active agent: {str(e)}", 500)
+        raise
 
 
 # Additional functions for populating categories and types

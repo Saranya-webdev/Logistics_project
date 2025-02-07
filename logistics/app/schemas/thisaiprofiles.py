@@ -92,3 +92,20 @@ class VerifyStatusResponse(BaseModel):
     class Config:
         from_attributes = True   
 
+
+class AssociatesCredentialCreate(BaseModel):
+    associates_id: int
+    associates_email: str
+    password: str
+
+class AssociatesCredentialResponse(BaseModel):
+    associates_credential_id: int
+    associates_id: int
+    email_id: str
+     
+    class Config:
+        from_attributes = True 
+
+class AssociatesPasswordUpdate(BaseModel):
+    associates_id: int
+    new_password: str        
