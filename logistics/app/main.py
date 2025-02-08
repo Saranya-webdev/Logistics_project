@@ -13,9 +13,18 @@ from app.routers import customers, agents, bookings, quotations, addressbook, ca
 from app.crud.customers import populate_categories, populate_customer_types
 from app.routers.BookingStatistics import booking_router
 import logging
+from fastapi.middleware.cors import CORSMiddleware
 
 # Initialize FastAPI app
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Create tables (if they don't exist already) during startup
 Base.metadata.create_all(bind=engine)

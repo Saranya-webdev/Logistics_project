@@ -78,7 +78,6 @@ class CarrierResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
 class SuspendOrActiveRequest(BaseModel):
     carrier_email: str
     active_flag: int
@@ -89,8 +88,8 @@ class SuspendOrActiveResponse(BaseModel):
     carrier_name: str
     carrier_email: str
     carrier_mobile: str
-    carrier_role: str
-    verification_status: Optional[VerificationStatus] = None
+    # carrier_role: str
+    # verification_status: Optional[VerificationStatus] = None
     remarks: Optional[str] = None
     active_flag: int
 

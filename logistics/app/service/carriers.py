@@ -106,22 +106,22 @@ def suspend_or_activate_carrier(db: Session, carrier_email: str, active_flag: in
         dict: Updated carrier details or error message.
     """
     try:
-        # Step 1: Validate the active flag value
+        # Validate the active flag value
         if active_flag not in [1, 2]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid active flag value. Use 1 (Activate) or 2 (Suspend)."
             )
 
-        # Step 2: Check if the carrier exists using utility function
-        existing_carrier = check_existing_by_email(db, Carrier, "carrier_email", carrier_email)  # Fixed call
+        # Check if the carrier exists using utility function
+        existing_carrier = check_existing_by_email(db, Carrier, "carrier_email", carrier_email)
         if not existing_carrier:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No carrier found with the provided email."
             )
 
-        # Step 3: Call the CRUD function to update the carrier
+        # Update the carrier's status using the CRUD function
         updated_carrier = suspend_or_activate_carrier_crud(db, carrier_email, active_flag, remarks)
 
         if not updated_carrier:
@@ -130,28 +130,24 @@ def suspend_or_activate_carrier(db: Session, carrier_email: str, active_flag: in
                 detail="No carrier found with the provided email."
             )
 
-        # Step 4: Return the updated carrier details
+        # Return the updated carrier details in the correct format
         return {
-            "message": "Carrier status updated successfully.",
-            "carrier": {
-                "carrier_id": updated_carrier.carrier_id,
-                "carrier_name": updated_carrier.carrier_name,
-                "carrier_email": updated_carrier.carrier_email,
-                "carrier_mobile": updated_carrier.carrier_mobile,
-                "active_flag": updated_carrier.active_flag,
-                "remarks": updated_carrier.remarks
-            }
+            "carrier_id": updated_carrier.carrier_id,
+            "carrier_name": updated_carrier.carrier_name,
+            "carrier_email": updated_carrier.carrier_email,
+            "carrier_mobile": updated_carrier.carrier_mobile,
+            "remarks": updated_carrier.remarks,
+            "active_flag": updated_carrier.active_flag
         }
 
     except HTTPException as http_exc:
-        # Raise HTTP exceptions
         raise http_exc
     except Exception as e:
-        # Handle general exceptions
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error updating carrier status: {str(e)}"
         )
+
 
 
 def get_carrier_profile(db: Session, carrier_email: str) -> dict:
