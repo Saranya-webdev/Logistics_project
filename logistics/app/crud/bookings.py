@@ -92,7 +92,7 @@ def create_booking_and_address_crud(db: Session, booking_data: dict):
         # Convert customer_id to int
         customer_id = int(booking_data.get("customer_id", 0))
          
-        print(f"booking date: {booking_data}")
+        print(f"booking data: {booking_data}")
         print(f"customer id: {customer_id}")
         print(f"from name: {booking_data.get("from_name")}")
         # Create new booking

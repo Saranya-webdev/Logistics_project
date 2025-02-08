@@ -59,15 +59,13 @@ async def update_carrier_status(
     db: Session = Depends(get_db)
 ):
     """
-    API to activate or suspend an carrier.
+    API to activate or suspend a carrier.
     """
     try:
-        # Unpack the dictionary into keyword arguments
-        result = suspend_or_activate_carrier(
-            db, 
-            **update_request.dict()
-        )
-        return result
+        result = suspend_or_activate_carrier(db, **update_request.dict())
+        
+        # Ensure the result matches the expected response model
+        return SuspendOrActiveResponse(**result)
 
     except HTTPException as http_exc:
         raise http_exc
@@ -76,6 +74,7 @@ async def update_carrier_status(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while updating carrier status: {str(e)}"
         )
+
 
 
 @router.get("/{carrier_email}/profile", response_model=dict)
