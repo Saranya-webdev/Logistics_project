@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from app.models.customers import Customer,CustomerBusiness,CustomerCredential
@@ -149,32 +149,33 @@ def get_customer_profile_list_crud(db: Session) -> list:
 
 
 # CRUD operation for get customer with booking details
-def get_customer_with_booking_details_crud(db: Session, customer_id: int, booking_id: int):
-    """Fetch a specific booking and its related items for a given customer."""
-    try:
+# def get_customer_with_booking_details_crud(db: Session, customer_id: int, booking_id: int):
+#     """Fetch a specific booking and its related items for a given customer."""
+#     try:
 
-       return db.query(Bookings).filter(
-        Bookings.customer_id == customer_id,
-        Bookings.booking_id == booking_id
-    ).first()
+#        return db.query(Bookings).filter(
+#         Bookings.customer_id == customer_id,
+#         Bookings.booking_id == booking_id
+#     ).first()
 
-    except Exception as e:
-        # Catch any other exceptions and raise a 500 error
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving customer with booking details: {str(e)}"
-        )
+#     except Exception as e:
+#         # Catch any other exceptions and raise a 500 error
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail=f"Error retrieving customer with booking details: {str(e)}"
+#         )
 
 
 # CRUD operation for get customer's booking list
 def get_customer_with_booking_list_crud(db: Session, customer_id: int) -> list:
     """CRUD function to get the customer with thier booking list from the database."""
     try:
-
-       bookings = db.query(Bookings).filter(Bookings.customer_id == customer_id).all()
+       bookings = db.query(Bookings).filter(Bookings.customer_id == customer_id).options(
+           joinedload(Bookings.booking_items)
+       ).all()
        if not bookings:
-        logging.warning(f"No bookings found for customer_id {customer_id}")
-        return bookings
+         logging.warning(f"No bookings found for customer_id {customer_id}")
+       return bookings
     except Exception as e:
         # Catch any other exceptions and raise a 500 error
         raise HTTPException(

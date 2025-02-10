@@ -8,7 +8,8 @@ from app.utils.utils import check_existing_by_email,get_credential_by_id, check_
 import logging
 import json
 import bcrypt
-from app.crud.customers import create_customer_crud,suspend_or_active_customer_crud,verify_corporate_customer_crud, get_customer_profile_crud, get_customer_profile_list_crud, get_customer_with_booking_details_crud,get_customer_with_booking_list_crud, update_customer_crud, create_customer_credential, update_customer_password_crud
+from app.crud.customers import create_customer_crud,suspend_or_active_customer_crud,verify_corporate_customer_crud, get_customer_profile_crud, get_customer_profile_list_crud,get_customer_with_booking_list_crud, update_customer_crud, create_customer_credential, update_customer_password_crud
+#  get_customer_with_booking_details_crud
 
 
 logger = logging.getLogger(__name__)
@@ -438,76 +439,76 @@ def get_customers_list_service(db: Session) -> list:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error retrieving customer list: {str(e)}")
 
 
-def get_customer_with_booking_details_service(db: Session, customer_id: int, booking_id: int):
-    """Retrieve a specific booking with its items for a given customer."""
-    try:
-        # Fetch customer using customer_id
-        customer = get_customer_profile_crud(db, customer_id)
-        if not customer:
-            raise HTTPException(status_code=404, detail="Customer not found")
+# def get_customer_with_booking_details_service(db: Session, customer_id: int, booking_id: int):
+#     """Retrieve a specific booking with its items for a given customer."""
+#     try:
+#         # Fetch customer using customer_id
+#         customer = get_customer_profile_crud(db, customer_id)
+#         if not customer:
+#             raise HTTPException(status_code=404, detail="Customer not found")
         
-        # Fetch booking using CRUD function
-        booking = get_customer_with_booking_details_crud(db, customer.customer_id, booking_id)
-        if not booking:
-            raise HTTPException(status_code=404, detail="Booking not found")
+#         # Fetch booking using CRUD function
+#         booking = get_customer_with_booking_details_crud(db, customer.customer_id, booking_id)
+#         if not booking:
+#             raise HTTPException(status_code=404, detail="Booking not found")
         
-        # Check if customer is corporate and fetch business details if applicable
-        business_details = {}
-        if customer.customer_type == Type.corporate:
-            if customer.customer_business:
-                business_details = {
-                    "tax_id": customer.customer_business.tax_id,
-                    "license_number": customer.customer_business.license_number,
-                    "designation": customer.customer_business.designation,
-                    "company_name": customer.customer_business.company_name
-                }
-            else:
-                raise HTTPException(status_code=404, detail="Corporate details not found for this customer")
+#         # Check if customer is corporate and fetch business details if applicable
+#         business_details = {}
+#         if customer.customer_type == Type.corporate:
+#             if customer.customer_business:
+#                 business_details = {
+#                     "tax_id": customer.customer_business.tax_id,
+#                     "license_number": customer.customer_business.license_number,
+#                     "designation": customer.customer_business.designation,
+#                     "company_name": customer.customer_business.company_name
+#                 }
+#             else:
+#                 raise HTTPException(status_code=404, detail="Corporate details not found for this customer")
         
-        # Prepare the response with customer, business, and booking details
-        booking_response = {
-            "customer_name": customer.customer_name,
-            "customer_mobile": customer.customer_mobile,
-            "customer_email": customer.customer_email,
-            "customer_address": customer.customer_address,
-            "customer_city": customer.customer_city,
-            "customer_state": customer.customer_state,
-            "customer_country": customer.customer_country,
-            "customer_pincode": customer.customer_pincode,
-            "booking_id": booking.booking_id,
-            "from_address": booking.from_address,
-            "from_city": booking.from_city,
-            "from_pincode": booking.from_pincode,
-            "to_address": booking.to_address,
-            "to_city": booking.to_city,
-            "to_pincode": booking.to_pincode,
-            "package_details": {
-                "no_of_packages": booking.package_count,
-                "pickup_date": booking.pickup_date,
-                "pickup_time": booking.pickup_time,
-                "estimated_delivery_date": booking.estimated_delivery_date
-            },
-            "item_details": [
-                {
-                    "item_id": item.item_id,
-                    "weight": item.weight,
-                    "package_type": item.package_type.name,
-                    "cost": item.cost,
-                    "ratings": item.rating,
-                }
-                for item in booking.items  # Access items directly from the booking relationship
-            ],
-        }
+#         # Prepare the response with customer, business, and booking details
+#         booking_response = {
+#             "customer_name": customer.customer_name,
+#             "customer_mobile": customer.customer_mobile,
+#             "customer_email": customer.customer_email,
+#             "customer_address": customer.customer_address,
+#             "customer_city": customer.customer_city,
+#             "customer_state": customer.customer_state,
+#             "customer_country": customer.customer_country,
+#             "customer_pincode": customer.customer_pincode,
+#             "booking_id": booking.booking_id,
+#             "from_address": booking.from_address,
+#             "from_city": booking.from_city,
+#             "from_pincode": booking.from_pincode,
+#             "to_address": booking.to_address,
+#             "to_city": booking.to_city,
+#             "to_pincode": booking.to_pincode,
+#             "package_details": {
+#                 "no_of_packages": booking.package_count,
+#                 "pickup_date": booking.pickup_date,
+#                 "pickup_time": booking.pickup_time,
+#                 "estimated_delivery_date": booking.estimated_delivery_date
+#             },
+#             "item_details": [
+#                 {
+#                     "item_id": item.item_id,
+#                     "weight": item.weight,
+#                     "package_type": item.package_type.name,
+#                     "cost": item.cost,
+#                     "ratings": item.rating,
+#                 }
+#                 for item in booking.items  # Access items directly from the booking relationship
+#             ],
+#         }
         
-        # Include business details for corporate customers
-        if business_details:
-            booking_response.update(business_details)
+#         # Include business details for corporate customers
+#         if business_details:
+#             booking_response.update(business_details)
         
-        return booking_response
+#         return booking_response
     
-    except Exception as e:
-        logging.error(f"Error retrieving booking details for customer {customer_id} and booking {booking_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+#     except Exception as e:
+#         logging.error(f"Error retrieving booking details for customer {customer_id} and booking {booking_id}: {str(e)}")
+#         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 def get_customer_with_booking_list_service(db: Session, customer_email: str) -> dict:
@@ -550,12 +551,48 @@ def get_customer_with_booking_list_service(db: Session, customer_email: str) -> 
         booking_summaries = [
     {
         "booking_id": booking.booking_id,
+        "customer_id":booking.customer_id,
+        "from_name":booking.from_name,
+        "from_email":booking.from_email,
+        "from_mobile":booking.from_mobile,
+        "from_address":booking.from_address,
+        "from_state":booking.from_state,
         "from_city": booking.from_city,
         "from_pincode": booking.from_pincode,
-        "to_city": booking.to_city,
+        "from_country":booking.from_country,
+        "to_name":booking.to_name,
+        "to_email":booking.to_email,
+        "to_mobile":booking.to_mobile,
+        "to_address":booking.to_address,
+        "to_state":booking.to_state,
         "to_pincode": booking.to_pincode,
-        "status": booking.status,
-        "action": booking.action
+        "to_city":booking.to_city,
+        "to_country":booking.to_country,
+        "carrier_plan":booking.carrier_plan,
+        "carrier_name":booking.carrier_name,
+        "pickup_date":booking.pickup_date,
+        "package_count":booking.package_count,
+        "est_cost":booking.est_cost,
+        "total_cost":booking.total_cost,
+        "est_delivery_date":booking.est_delivery_date,
+        "booking_date":booking.booking_date,
+        "status": booking.booking_status,
+        "booking_items":[
+            {   "item_id":item.item_id,
+                "booking_id":item.booking_id,
+                "item_length": item.item_length,
+                "item_weight":item.item_weight,
+                "item_height":item.item_height,
+                "item_width":item.item_width,
+                "package_type":item.package_type,
+                "package_cost":item.package_cost
+            }
+            for item in booking.booking_items
+
+        ]
+        
+
+        
     }
     for booking in bookings or []
 ]
@@ -563,6 +600,7 @@ def get_customer_with_booking_list_service(db: Session, customer_email: str) -> 
 
         # Add bookings to response
         response["bookings"] = booking_summaries
+        print(f"response from service: {response}")
 
         return response  # Return the final response dictionary
 

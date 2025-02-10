@@ -17,7 +17,8 @@ from app.schemas.customers import (
 from app.databases.mysqldb import get_db
 import logging
 
-from app.service.customers import create_customer_service, suspend_or_activate_customer_service, verify_corporate_customer_service, get_customer_profile_service, get_customers_list_service, get_customer_with_booking_details_service,get_customer_with_booking_list_service, update_customer_service, create_customer_credential_service, update_customer_password_service
+from app.service.customers import create_customer_service, suspend_or_activate_customer_service, verify_corporate_customer_service, get_customer_profile_service, get_customers_list_service, get_customer_with_booking_list_service, update_customer_service, create_customer_credential_service, update_customer_password_service
+# get_customer_with_booking_details_service,
 
 
 router = APIRouter() 
@@ -180,22 +181,22 @@ def get_customer_booking_list(customer_email: str, db: Session = Depends(get_db)
 
 
 #  Get customer booking details
-@router.get("/customer/{customer_id}/booking/{booking_id}")
-def get_customer_with_booking_details(
-    customer_id: int, booking_id: int, db: Session = Depends(get_db)
-):
-    """Retrieve a specific booking with its items for a given customer."""
-    try:
-        # Call the service function to get customer and booking details
-        booking_response = get_customer_with_booking_details_service(db, customer_id, booking_id)
-        return booking_response
+# @router.get("/customer/{customer_id}/booking/{booking_id}")
+# def get_customer_with_booking_details(
+#     customer_id: int, booking_id: int, db: Session = Depends(get_db)
+# ):
+#     """Retrieve a specific booking with its items for a given customer."""
+#     try:
+#         # Call the service function to get customer and booking details
+#         booking_response = get_customer_with_booking_details_service(db, customer_id, booking_id)
+#         return booking_response
     
-    except HTTPException as e:
-        # Specific HTTP exception handling (e.g., 404 errors)
-        raise e
-    except Exception as e:
-        logging.error(f"Error retrieving booking details for customer {customer_id} and booking {booking_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+#     except HTTPException as e:
+#         # Specific HTTP exception handling (e.g., 404 errors)
+#         raise e
+#     except Exception as e:
+#         logging.error(f"Error retrieving booking details for customer {customer_id} and booking {booking_id}: {str(e)}")
+#         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @router.put("/updatecustomer", response_model=CustomerUpdateResponse, status_code=status.HTTP_200_OK)

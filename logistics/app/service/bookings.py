@@ -127,14 +127,14 @@ async def fetch_shipping_rates(data: dict):
 
         if not quotation_result.get("success"):
             return {"error": "Failed to store quotation in database."}
-
+    
         # Call UPS API to get rates
         shipping_rates_response = await get_ups_shipping_rates(
             access_token,
             shipper_address,
             ship_to_address, 
             ship_from_address,
-            package_details  
+            package_details
         )
 
         if not shipping_rates_response:
@@ -261,38 +261,6 @@ def create_booking_and_shipment_service(db: Session, booking_data: dict) -> dict
         client_secret = "uENQxqH6pWWhxUTIf8iQy8jJlLXBxTaJhRZ9qiGP7VPoqB0qAYgI8ctPtpeEzw53"
         access_token = ups_get_access_token(client_id, client_secret)
 
-        if not access_token:
-            raise HTTPException(status_code=500, detail="Failed to retrieve UPS access token.")
-        
-        package_data = booking_data.get("package_details")
-       
-        # Validate ship_from_address
-        ship_from_address = booking_data.get("ship_from_address", {})
-        if not ship_from_address.get("StateProvinceCode"):
-            raise HTTPException(status_code=400, detail="Missing 'StateProvinceCode' in ship_from_address.")
-
-        # Validate ship_to_address
-        ship_to_address = booking_data.get("ship_to_address", {})
-        if not ship_to_address.get("CountryCode") or not ship_to_address.get("StateProvinceCode"):
-            raise HTTPException(status_code=400, detail="Missing 'CountryCode' or 'StateProvinceCode' in ship_to_address.")
-        
-        booking_items = booking_data.get("booking_items",[])
-        # Validate required fields
-        package_type = booking_items.get("package_type")
-        if not package_type:
-            return {"error": "Missing 'package_type' in package_details"}
-        
-        # Assign package attributes based on package_type_code
-        if package_type == "Document":  # Document package type
-            booking_items["packagebilltype"] = "02"
-            booking_items["DocumentsOnlyIndicator"] = "Document"
-            booking_items["PackagingType"] = {"Code": "01"}  # UPS Letter
-        else:  # Non-Document package type
-            booking_items["packagebilltype"] = "03"
-            # package_data["DocumentsOnlyIndicator"] = "Non-Document"
-            booking_items["PackagingType"] = {"Code": "02"}  # Other Packaging
-
-
         # Define static shipper address details
         shipper_address = {
             "Name": "Thisai",
@@ -302,44 +270,109 @@ def create_booking_and_shipment_service(db: Session, booking_data: dict) -> dict
             "PostalCode": "12345",
             "CountryCode": "US"
         }
+        payment_info = {
+           "ShipmentCharge": {
+           "Type": "01",
+           "BillShipper": {
+            "AccountNumber": "RC6604",
+            "Address": {
+                "PostalCode": "93063",
+                "CountryCode": "US"
+            }
+           }
+}
+}
+        if not access_token:
+            raise HTTPException(status_code=500, detail="Failed to retrieve UPS access token.")
+        
+        package_data = booking_data.get("package_details")
+       
+        # Validate ship_from_address
+        ship_from_address ={
+            "Name": booking_data.get("ship_from_address",{}).get("from_name"),
+            "AddressLine": [booking_data.get("ship_from_address",{}).get("from_address")],
+            "City":  booking_data.get("ship_from_address",{}).get("from_city"),
+            "StateProvinceCode":  booking_data.get("ship_from_address",{}).get("from_state"),
+            "PostalCode":  booking_data.get("ship_from_address",{}).get("from_pincode"),
+            "CountryCode":  booking_data.get("ship_from_address",{}).get("from_country")
+
+        }
+        print(f"ship_from_address from service: {ship_from_address}")
+
+        # Validate ship_to_address
+        ship_to_address ={
+            "Name": booking_data.get("ship_to_address",{}).get("to_name"),
+            "AddressLine": [booking_data.get("ship_to_address",{}).get("to_address")],
+            "City":  booking_data.get("ship_to_address",{}).get("to_city"),
+            "StateProvinceCode":  booking_data.get("ship_to_address",{}).get("to_state"),
+            "PostalCode":  booking_data.get("ship_to_address",{}).get("to_pincode"),
+            "CountryCode":  booking_data.get("ship_to_address",{}).get("to_country")
+
+        }
+        print(f"ship_to_address from service: {ship_to_address}")
+        
+        booking_items = booking_data.get("booking_items",[])
+
+        service_code = package_data.get("service_code",{})
+        print(f"service_code from service: {service_code}")
+        pickup_date =  package_data.get("pickup_date",{})
+        formatted_pickupdate = pickup_date.strftime("%Y-%m-%d")
+        
+        for item in booking_items:
+          package_type = item.get("package_type")  # Access package_type from each dictionary in the list
+
+          if not package_type:
+            return {"error": "Missing 'package_type' in booking_items"}
+
+          # Assign package attributes based on package_type_code
+          if package_type == "Document":  # Document package type
+           item["packagebilltype"] = "02"
+           item["DocumentsOnlyIndicator"] = "Document"
+           item["PackagingType"] = {"Code": "01"}  # UPS Letter
+          else:  # Non-Document package type
+            item["packagebilltype"] = "03"
+            item["PackagingType"] = {"Code": "02"}  # Other Packaging
 
         # Construct package details
-        package_details = {
+          package_details = {
             "Packaging": {
-                "Code": booking_items.get("PackagingType", {}).get("Code", ""),
+                "Code": item.get("PackagingType", {}).get("Code", ""),
                 "Description": "Nails"
             },
             "DeliveryTimeInformation": {
-                "PackageBillType": booking_items.get("packagebilltype", ""),
-                "Pickup": {"Date": package_data.get("pickup_date", "")}
+                "PackageBillType": item.get("packagebilltype", ""),
+                "Pickup": {"Date": formatted_pickupdate}
             },
             "NumOfPieces": package_data.get("NumOfPieces", 1),
-            "DocumentsOnlyIndicator": booking_items.get("DocumentsOnlyIndicator", ""),
+            "DocumentsOnlyIndicator": item.get("DocumentsOnlyIndicator", ""),
             "Dimensions": {
                 "UnitOfMeasurement": {"Code": "IN", "Description": "Inches"},
-                "Length": booking_items.get("length", ""),
-                "Width": booking_items.get("width", ""),
-                "Height": booking_items.get("height", "")
+                "Length": str(item.get("weight", "")),
+                "Width": str(item.get("weight", "")),
+                "Height": str(item.get("weight", ""))
             },
             "PackageWeight": {
                 "UnitOfMeasurement": {"Code": "LBS", "Description": "Pounds"},
-                "Weight": booking_items.get("weight", "")
+                "Weight": str(item.get("weight", ""))
             },
         }
+          print(f"package details from service: {package_details}")
+          print(f"package details:{type(item.get("weight"))}")
+        
         # Call UPS API to create shipment
         shipment_response = ups_create_shipment(
             access_token,
             shipper_address,
             ship_from_address,
             ship_to_address,
-            package_details
+            package_details,
+            service_code,
+            payment_info,
+            
         )
 
-        # Add shipment response to booking response data
-        booking_response_data["shipment_response"] = shipment_response
-
         # Return the final response including booking and shipment info
-        return booking_response_data
+        return shipment_response
 
     except Exception as e:
         logger.error(f"Error in booking and shipment service: {str(e)}")

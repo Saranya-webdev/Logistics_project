@@ -1,7 +1,7 @@
 from pydantic import BaseModel, root_validator, Field
 from typing import Optional, List
 from app.models.enums import Type, Category, VerificationStatus
-from app.schemas.bookings import BookingSummary
+from app.schemas.bookings import BookingDetailedResponse
 
 class Customer(BaseModel):
     customer_name: str
@@ -115,7 +115,7 @@ class CustomerResponse(BaseModel):
     customer_geolocation: str
     customer_type: Type
     customer_category: Category
-    remarks: Optional[str] = None
+    # remarks: Optional[str] = None
     verification_status: VerificationStatus
     active_flag: int
     # Business-related fields
@@ -146,7 +146,8 @@ class CustomerBookingListResponse(BaseModel):
     license_number: Optional[str] = None
     designation: Optional[str] = None
     company_name: Optional[str] = None
-    bookings: List[BookingSummary] = []
+    # bookings: List[BookingSummary] = []
+    bookings:List[BookingDetailedResponse] = [] 
 
 
 class BookingListResponse(BaseModel):
