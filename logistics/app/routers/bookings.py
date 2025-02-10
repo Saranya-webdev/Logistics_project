@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session,joinedload
-from app.schemas.bookings import ShippingRateRequest,ShippingRateResponse,BookingCreateRequeast, BookingListResponse
+from app.schemas.bookings import ShippingRateRequest,ShippingRateResponse,BookingCreateRequeast, BookingListResponse,ShipmentCreateResponse
 from app.databases.mysqldb import get_db
 from app.service.bookings import create_booking_and_shipment_service, fetch_shipping_rates, cancel_booking_service, get_all_bookings_service,update_quotation_status_service
 from typing import  List
@@ -38,7 +38,7 @@ async def get_ups_shipping_rates(request_data: ShippingRateRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/create_booking/", response_model=ShippingRateResponse)
+@router.post("/create_booking/", response_model=ShipmentCreateResponse)
 async def create_booking(request_data: BookingCreateRequeast, db: Session = Depends(get_db)):
     """
     Endpoint to create a booking and shipment using the UPS API.

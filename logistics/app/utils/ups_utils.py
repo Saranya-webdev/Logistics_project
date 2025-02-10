@@ -308,6 +308,7 @@ def ups_create_shipment(access_token, shipper_address, ship_from_address, ship_t
     query = {
     "additionaladdressvalidation": "string"
     }
+    print(f"payment info from ups_utils: {payment_info}")
 
     payload = {
         "ShipmentRequest": {
@@ -383,12 +384,20 @@ def ups_create_shipment(access_token, shipper_address, ship_from_address, ship_t
     shipping_label_image = data['ShipmentResponse']['ShipmentResults']['PackageResults'][0]['ShippingLabel']['GraphicImage']
 
     save_shipping_label(data,shipment_id)
+    shipment_details = {
+       "shipment_id":shipment_id,
+       "tracking_number" :tracking_number,
+       "total_charges" :total_charges,
+       "base_service_charge":base_service_charge,
+       "residential_surcharge":residential_surcharge
+    }
 
     print("\nshipment_id : ", shipment_id )
     print("\nTracking Number : ",  tracking_number )
     print("\nTotal Charge : ", total_charges)
     print("\nBase Service Charge : ", base_service_charge)
     print("\nResidential Surcharge : ",residential_surcharge)
+    return shipment_details
 
 
 def save_shipping_label(data, shipment_id):

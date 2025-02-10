@@ -164,23 +164,25 @@ def save_address_if_not_exists(db: Session, customer_id: int, booking: dict, is_
     If not, inserts a new record.
     """
     address_prefix = "from_" if is_from else "to_"
+    address_name = "from_address" if is_from else "to_address"
 
     # Extract address details
     address_data = {
         
-        "address_name": booking.get("ship_from_address", {}).get(f"{address_prefix}name"),
-        "name": booking.get(f"{address_prefix}name"),
-        "mobile": booking.get(f"{address_prefix}mobile"),
-        "email_id": booking.get(f"{address_prefix}email"),
-        "address": booking.get(f"{address_prefix}address"),
-        "city": booking.get(f"{address_prefix}city"),
-        "state": booking.get(f"{address_prefix}state"),
-        "country": booking.get(f"{address_prefix}country"),
-        "pincode": booking.get(f"{address_prefix}pincode"),
-        "company_name": "BTL",  # You can modify this if needed
-        "address_type": "HOME",
+        "address_name": address_name,
+        "name": booking.get(f"ship_{address_prefix}address", {}).get(f"{address_prefix}name"),
+        "mobile": booking.get(f"ship_{address_prefix}address", {}).get(f"{address_prefix}mobile"),
+        "email_id": booking.get(f"ship_{address_prefix}address", {}).get(f"{address_prefix}email"),
+        "address": booking.get(f"ship_{address_prefix}address", {}).get(f"{address_prefix}address"),
+        "city": booking.get(f"ship_{address_prefix}address", {}).get(f"{address_prefix}city"),
+        "state": booking.get(f"ship_{address_prefix}address", {}).get(f"{address_prefix}state"),
+        "pincode": booking.get(f"ship_{address_prefix}address", {}).get(f"{address_prefix}pincode"),
+        "country": booking.get(f"ship_{address_prefix}address", {}).get(f"{address_prefix}country"),
+        "company_name": "BTL",  # Modify if needed
+        "address_type": "Residential",
         "customer_id": customer_id
     }
+    print(f"address data from crud:{address_data}")
 
     # Check if the address already exists
     existing_address = db.query(AddressBook).filter(
