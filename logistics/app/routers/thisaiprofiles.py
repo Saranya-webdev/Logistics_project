@@ -2,8 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.databases.mysqldb import get_db
 import logging
+<<<<<<< HEAD
 from app.schemas.thisaiprofiles import AssociatesCreate, AssociatesResponse, AssociatesUpdateResponse, AssociatesUpdate,SuspendOrActiveRequest,SuspendOrActiveResponse, VerifyStatusRequest, VerifyStatusResponse, AssociatesCredentialCreate,AssociatesCredentialResponse, AssociatesPasswordUpdate,AssociateBookingListResponse
 from app.service.thisaiprofiles import create_associates_service, update_associates_service, suspend_or_activate_associates_service,verify_associate_service, get_associates_profile_service, get_associatess_profile_list, create_associates_credential_service,update_associates_password_service,get_bookings_by_associate_service
+=======
+from app.schemas.thisaiprofiles import AssociatesCreate, AssociatesResponse, AssociatesUpdateResponse, AssociatesUpdate,SuspendOrActiveRequest,SuspendOrActiveResponse, VerifyStatusRequest, VerifyStatusResponse, AssociatesCredentialCreate,AssociatesCredentialResponse, AssociatesPasswordUpdate
+from app.service.thisaiprofiles import create_associates_service, update_associates_service, suspend_or_activate_associates_service,verify_associate_service, get_associates_profile_service, get_associatess_profile_list, create_associates_credential_service,update_associates_password_service
+>>>>>>> origin/main
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +177,7 @@ def get_associates_profiles(db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected error occurred: {str(e)}"
         )
+<<<<<<< HEAD
     
 
 @router.get("/{associates_email}/bookings", response_model=AssociateBookingListResponse)
@@ -187,6 +193,8 @@ def get_bookings_by_associate(associates_email: str, db: Session = Depends(get_d
         logging.error(f"Error retrieving bookings for associate {associates_email}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error. Please try again later.")
 
+=======
+>>>>>>> origin/main
 
 @router.put("/updateassociate", response_model=AssociatesUpdateResponse, status_code=status.HTTP_200_OK)
 async def update_associate(associate_data: AssociatesUpdate, db: Session = Depends(get_db)):

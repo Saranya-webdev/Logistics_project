@@ -1,7 +1,13 @@
+<<<<<<< HEAD
 from sqlalchemy.orm import Session,joinedload
 from fastapi import HTTPException, status
 from app.models.agents import Agent, Category, AgentCredential
 from app.models.bookings import Bookings
+=======
+from sqlalchemy.orm import Session
+from fastapi import HTTPException, status
+from app.models.agents import Agent, Category, AgentCredential
+>>>>>>> origin/main
 from app.schemas.agents import AgentUpdateResponse
 from app.utils.utils import log_and_raise_exception, populate_dynamic_entries
 import logging
@@ -89,6 +95,7 @@ def get_all_agents_crud(db: Session) -> list:
         return agents
     except Exception as e:
         raise Exception(f"Database error while retrieving all agents: {str(e)}")
+<<<<<<< HEAD
     
 
 def get_bookings_by_agent_crud(db: Session, agent_email: str):
@@ -100,6 +107,8 @@ def get_bookings_by_agent_crud(db: Session, agent_email: str):
     ).options(
            joinedload(Bookings.booking_items)
        ).all()
+=======
+>>>>>>> origin/main
 
 
 # CRUD operations for update agent

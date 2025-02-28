@@ -122,12 +122,17 @@ def create_booking_and_address_crud(db: Session, booking_data: dict):
             est_cost=booking_data.get("package_details", {}).get("est_cost"),
             total_cost=booking_data.get("package_details", {}).get("total_cost"),
             est_delivery_date=booking_data.get("package_details", {}).get("est_delivery_date"),
+<<<<<<< HEAD
             booking_date=booking_data.get("package_details", {}).get("booking_date"),
             booking_by=booking_data.get("package_details",{}).get("booking_by")
 
         )
         print(f"Booking data before inserting: {booking_data}")
 
+=======
+            booking_date=booking_data.get("package_details", {}).get("booking_date")
+        )
+>>>>>>> origin/main
         print(f"new bookings: {new_booking}") 
         db.add(new_booking)
         db.commit()

@@ -30,6 +30,7 @@ async def create_new_carrier(
         )
     
 
+<<<<<<< HEAD
     # OLD FOR FASTAPI
 # @router.put("/updatecarrier", response_model=CarrierUpdateResponse, status_code=status.HTTP_200_OK)
 # async def update_carrier(carrier_data: CarrierUpdate, db: Session = Depends(get_db)):
@@ -70,6 +71,28 @@ async def update_carrier(carrier_data: CarrierUpdate, db: Session = Depends(get_
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+=======
+    
+@router.put("/updatecarrier", response_model=CarrierUpdateResponse, status_code=status.HTTP_200_OK)
+async def update_carrier(carrier_data: CarrierUpdate, db: Session = Depends(get_db)):
+    """
+    Route for updating an carrier's details using the request body.
+    """
+    try:
+       if not carrier_data.carrier_email:  # Ensure proper field name is used
+        raise HTTPException(status_code=400, detail="carrier email is required for update.")
+
+       carrier_data_dict = carrier_data.dict()
+
+       updated_carrier = update_carrier_service(db, carrier_data.carrier_email, carrier_data_dict)  # Passing email separately
+
+
+    except:
+       if "message" in updated_carrier:
+        raise HTTPException(status_code=400, detail=updated_carrier["message"])
+       return updated_carrier
+    
+>>>>>>> origin/main
 
 
 

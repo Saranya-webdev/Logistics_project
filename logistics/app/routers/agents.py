@@ -1,9 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+<<<<<<< HEAD
 from app.schemas.agents import AgentCreate, AgentResponse, AgentUpdate, AgentUpdateResponse, SuspendOrActiveResponse, SuspendOrActiveRequest, VerifyStatusResponse, VerifyStatusRequest, AgentCredentialCreate, AgentCredentialResponse, AgentPasswordUpdate,AgentBookingListResponse
 from app.databases.mysqldb import get_db
 import logging
 from app.service.agents import update_agent_service, verify_agent_service, suspend_or_activate_agent, get_agent_profile, get_all_agents_profile, create_agent_service, create_agent_credential_service, update_agent_password_service, get_bookings_by_agent_service
+=======
+from app.schemas.agents import AgentCreate, AgentResponse, AgentUpdate, AgentUpdateResponse, SuspendOrActiveResponse, SuspendOrActiveRequest, VerifyStatusResponse, VerifyStatusRequest, AgentCredentialCreate, AgentCredentialResponse, AgentPasswordUpdate
+from app.databases.mysqldb import get_db
+import logging
+from app.service.agents import update_agent_service, verify_agent_service, suspend_or_activate_agent, get_agent_profile, get_all_agents_profile, create_agent_service, create_agent_credential_service, update_agent_password_service
+>>>>>>> origin/main
 
 router = APIRouter()
 
@@ -168,6 +175,7 @@ def get_all_agents_profiles_endpoint(db: Session = Depends(get_db)):
                             detail=f"An unexpected error occurred: {str(e)}")
 
 
+<<<<<<< HEAD
 @router.get("/{agent_email}/bookings", response_model=AgentBookingListResponse)
 def get_bookings_by_agent(agent_email: str, db: Session = Depends(get_db)):
     """
@@ -181,6 +189,8 @@ def get_bookings_by_agent(agent_email: str, db: Session = Depends(get_db)):
         logging.error(f"Error retrieving bookings for agent {agent_email}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error. Please try again later.")
 
+=======
+>>>>>>> origin/main
 
 # Update agent by ID
 @router.put("/updateagent", response_model=AgentUpdateResponse, status_code=status.HTTP_200_OK)

@@ -4,7 +4,11 @@ from sqlalchemy.exc import IntegrityError
 from app.models.thisaiprofiles import Associate,AssociatesCredential
 from app.models.enums import VerificationStatus
 from app.utils.utils import check_existing_by_email, check_existing_by_id_and_email,get_credential_by_id
+<<<<<<< HEAD
 from app.crud.thisaiprofiles import create_associates_crud, update_associates_crud, suspend_or_activate_associates_crud, verify_associate_crud,get_associates_profile_crud,get_associates_profiles_list_crud, create_associates_credential,  update_associates_password_crud,get_bookings_by_associate_crud
+=======
+from app.crud.thisaiprofiles import create_associates_crud, update_associates_crud, suspend_or_activate_associates_crud, verify_associate_crud,get_associates_profile_crud,get_associates_profiles_list_crud, create_associates_credential,  update_associates_password_crud
+>>>>>>> origin/main
 import logging
 import bcrypt
 
@@ -263,6 +267,7 @@ def get_associatess_profile_list(db: Session) -> list:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while retrieving associates profiles: {str(e)}"
         )
+<<<<<<< HEAD
 
 
 def get_bookings_by_associate_service(db, associates_email):
@@ -310,3 +315,5 @@ def get_bookings_by_associate_service(db, associates_email):
     except Exception as e:
         logging.error(f"Error retrieving bookings by associate {associates_email}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+=======
+>>>>>>> origin/main

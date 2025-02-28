@@ -1,8 +1,14 @@
 from app.models.thisaiprofiles import Associate, AssociatesCredential
+<<<<<<< HEAD
 from sqlalchemy.orm import Session,joinedload
 from fastapi import HTTPException, status
 import logging
 from app.models.bookings import Bookings
+=======
+from sqlalchemy.orm import Session
+from fastapi import HTTPException, status
+import logging
+>>>>>>> origin/main
 
 
 
@@ -130,6 +136,7 @@ def get_associates_profiles_list_crud(db: Session) -> list:
         )
 
 
+<<<<<<< HEAD
 def get_bookings_by_associate_crud(db: Session, associates_email: str):
     """
     Fetch bookings from the database where booking is placed by an associate.
@@ -140,6 +147,8 @@ def get_bookings_by_associate_crud(db: Session, associates_email: str):
            joinedload(Bookings.booking_items)
        ).all()
 
+=======
+>>>>>>> origin/main
 # CRUD operations for suspend/active customer
 def suspend_or_activate_associates_crud(db: Session, associates_email: str, active_flag: int, remarks: str):
     """

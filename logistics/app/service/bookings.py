@@ -59,10 +59,16 @@ async def fetch_shipping_rates(data: dict):
         }
         ship_to_address = {
             "name": data.get("ship_to_address", {}).get("Name", ""),
+<<<<<<< HEAD
             # "address_line_1": data.get("ship_to_address", {}).get("AddressLine", ""),
             # "address_line_2":data.get("ship_to_address", {}).get("AddressLine", ""),
             # "address_line_3":data.get("ship_to_address", {}).get("AddressLine", ""),
             "Address": data.get("ship_to_address", {}).get("Address", ""),
+=======
+            "address_line_1": data.get("ship_to_address", {}).get("AddressLine", ""),
+            "address_line_2":data.get("ship_to_address", {}).get("AddressLine", ""),
+            "address_line_3":data.get("ship_to_address", {}).get("AddressLine", ""),
+>>>>>>> origin/main
             "Mobile": data.get("ship_to_address", {}).get("Mobile", ""),
             "Email": data.get("ship_to_address",{}).get("Email",""),
             "city": data.get("ship_to_address", {}).get("City", ""),
@@ -72,10 +78,16 @@ async def fetch_shipping_rates(data: dict):
         }
         ship_from_address = {
             "name": data.get("ship_from_address", {}).get("Name", ""),
+<<<<<<< HEAD
             # "address_line_1": data.get("ship_from_address", {}).get("AddressLine", ""),
             # "address_line_2":data.get("ship_from_address", {}).get("AddressLine", ""),
             # "address_line_3":data.get("ship_from_address", {}).get("AddressLine", ""),
             "Address": data.get("ship_from_address", {}).get("Address", ""),
+=======
+            "address_line_1": data.get("ship_from_address", {}).get("AddressLine", ""),
+            "address_line_2":data.get("ship_from_address", {}).get("AddressLine", ""),
+            "address_line_3":data.get("ship_from_address", {}).get("AddressLine", ""),
+>>>>>>> origin/main
             "Mobile": data.get("ship_from_address", {}).get("Mobile", ""),
             "Email": data.get("ship_from_address",{}).get("Email",""),
             "city": data.get("ship_from_address", {}).get("City", ""),
@@ -115,10 +127,17 @@ async def fetch_shipping_rates(data: dict):
             
             "package_details": package_details,
             "status": "unsaved",
+<<<<<<< HEAD
             # "created_by": {
             #     "usertype": data.get("UserType", "") if data.get("UserType") else None,
             #     "userid": data.get("UserId","") if data.get("UserId") else None,
             # }
+=======
+            "created_by": {
+                "usertype": data.get("UserType", "") if data.get("UserType") else None,
+                "userid": data.get("UserId","") if data.get("UserId") else None,
+            }
+>>>>>>> origin/main
         }
         print(f"package details: {package_details}")
 
@@ -242,7 +261,10 @@ def create_booking_and_shipment_service(db: Session, booking_data: dict) -> dict
             "pickup_date": new_booking.pickup_date,
             "total_cost": new_booking.total_cost,
             "booking_date": new_booking.booking_date,
+<<<<<<< HEAD
             "booking_by":new_booking.booking_by,
+=======
+>>>>>>> origin/main
             "package_count": new_booking.package_count,
             "booking_items": [
                 {

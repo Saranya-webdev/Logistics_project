@@ -1,5 +1,9 @@
 from pydantic import BaseModel
+<<<<<<< HEAD
 from typing import Optional, List
+=======
+from typing import Optional
+>>>>>>> origin/main
 from app.models.enums import VerificationStatus, Role
 
 class Associates(BaseModel):
@@ -108,6 +112,7 @@ class AssociatesCredentialResponse(BaseModel):
 
 class AssociatesPasswordUpdate(BaseModel):
     associates_id: int
+<<<<<<< HEAD
     new_password: str        
 
 
@@ -139,3 +144,6 @@ class AssociateBookingListResponse(BaseModel):
     
     class Config:
         from_attributes = True    
+=======
+    new_password: str        
+>>>>>>> origin/main

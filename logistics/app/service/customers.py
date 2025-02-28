@@ -161,6 +161,7 @@ def update_customer_password_service(db: Session, customer_id: int, new_password
     except Exception as e:
         raise Exception(f"Service error while updating password: {e}")        
 
+<<<<<<< HEAD
 # OLD CODE FOR FASTAPI'S UPDATE CUSTOMER
 # def update_customer_service(db: Session, customer_data: dict) -> dict:
 #     """Business logic for updating a customer's details based on customer email."""
@@ -236,11 +237,21 @@ def update_customer_password_service(db: Session, customer_id: int, new_password
 # NEW CODE FOR EDIT CUSTOMER DETAILS IN FRONTEND
 def update_customer_service(db: Session, customer_data: dict) -> dict:
     """Business logic for updating a customer's details based on customer email."""
+=======
+
+def update_customer_service(db: Session, customer_data: dict) -> dict:
+    """Business logic for updating a customer's details based on customer email."""
+
+>>>>>>> origin/main
     try:
         # Step 1: Check if the customer exists based on email
         existing_customer = check_existing_by_email(db, Customer, "customer_email", customer_data["customer_email"])
         if not existing_customer:
+<<<<<<< HEAD
             return {"message": "No customers found with the given email."}
+=======
+            return {"message": "No customers found with the given email."}  # Return message if no customer is found
+>>>>>>> origin/main
 
         # Step 2: Exclude fields that shouldn't be updated
         fields_to_exclude = ["verification_status", "customer_category", "remarks"]
@@ -248,6 +259,7 @@ def update_customer_service(db: Session, customer_data: dict) -> dict:
 
         # Step 3: Update the customer's details (without modifying customer_email)
         updated_customer = update_customer_crud(db, existing_customer.customer_email, filtered_data)
+<<<<<<< HEAD
         if not updated_customer:
             return {"message": "Error updating customer details."}
 
@@ -259,6 +271,18 @@ def update_customer_service(db: Session, customer_data: dict) -> dict:
             existing_business = db.query(CustomerBusiness).filter(CustomerBusiness.customer_id == updated_customer.customer_id).first()
             if existing_business:
                 # Update business fields if the customer is a corporate entity
+=======
+
+        if not updated_customer:
+            return {"message": "Error updating customer details."}
+
+        # Step 4: Handle business details for corporate customers
+        business_details = None
+        if customer_data.get("customer_type") == Type.corporate:
+            existing_business = db.query(CustomerBusiness).filter(CustomerBusiness.customer_id == updated_customer.customer_id).first()
+            if existing_business:
+                # Update business fields if the customer is a business (corporate)
+>>>>>>> origin/main
                 business_fields = ["tax_id", "license_number", "designation", "company_name"]
                 for field in business_fields:
                     if field in customer_data and customer_data[field] is not None:
@@ -269,11 +293,21 @@ def update_customer_service(db: Session, customer_data: dict) -> dict:
                 business_data["customer_email"] = updated_customer.customer_email
                 new_business = CustomerBusiness(**business_data)
                 db.add(new_business)
+<<<<<<< HEAD
                 existing_business = new_business  # Assign new business instance
+=======
+            business_details = {
+                "tax_id": existing_business.tax_id if existing_business else None,
+                "license_number": existing_business.license_number if existing_business else None,
+                "designation": existing_business.designation if existing_business else None,
+                "company_name": existing_business.company_name if existing_business else None
+            }
+>>>>>>> origin/main
 
         # Commit changes to the database
         db.commit()
 
+<<<<<<< HEAD
         # **Ensure business_details is valid before returning**
         business_details = {
             "tax_id": existing_business.tax_id if existing_business else None,
@@ -282,6 +316,9 @@ def update_customer_service(db: Session, customer_data: dict) -> dict:
             "company_name": existing_business.company_name if existing_business else None
         }
 
+=======
+        # Return the updated customer details along with business details
+>>>>>>> origin/main
         return {
             "customer_id": updated_customer.customer_id,
             "customer_name": updated_customer.customer_name,
@@ -294,8 +331,16 @@ def update_customer_service(db: Session, customer_data: dict) -> dict:
             "customer_pincode": updated_customer.customer_pincode,
             "customer_geolocation": updated_customer.customer_geolocation,
             "customer_type": updated_customer.customer_type,
+<<<<<<< HEAD
             "customer_category": updated_customer.customer_category,
             **business_details  # Unpack business details safely
+=======
+            "customer_category": updated_customer.customer_category,  # Include customer category if needed
+            "tax_id": existing_business.tax_id,
+                "license_number": existing_business.license_number ,
+                "designation": existing_business.designation ,
+                "company_name": existing_business.company_name 
+>>>>>>> origin/main
         }
 
     except Exception as e:
@@ -304,6 +349,10 @@ def update_customer_service(db: Session, customer_data: dict) -> dict:
         return {"message": f"Error updating customer: {str(e)}"}
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/main
 def suspend_or_activate_customer_service(
     db: Session, customer_email: str, active_flag: int, remarks: str
 ) -> dict:
@@ -646,7 +695,11 @@ def get_customer_with_booking_list_service(db: Session, customer_email: str) -> 
         "total_cost":booking.total_cost,
         "est_delivery_date":booking.est_delivery_date,
         "booking_date":booking.booking_date,
+<<<<<<< HEAD
         "booking_status": booking.booking_status,
+=======
+        "status": booking.booking_status,
+>>>>>>> origin/main
         "booking_items":[
             {   "item_id":item.item_id,
                 "booking_id":item.booking_id,

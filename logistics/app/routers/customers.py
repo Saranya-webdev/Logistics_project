@@ -199,6 +199,7 @@ def get_customer_booking_list(customer_email: str, db: Session = Depends(get_db)
 #         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
+<<<<<<< HEAD
 # @router.put("/updatecustomer", response_model=CustomerUpdateResponse, status_code=status.HTTP_200_OK)
 # async def update_customer(customer_data: CustomerUpdate, db: Session = Depends(get_db)):
 #     """
@@ -240,3 +241,23 @@ async def update_customer(customer_data: CustomerUpdate, db: Session = Depends(g
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
+=======
+@router.put("/updatecustomer", response_model=CustomerUpdateResponse, status_code=status.HTTP_200_OK)
+async def update_customer(customer_data: CustomerUpdate, db: Session = Depends(get_db)):
+    """
+    Route for updating an customer's details using the request body.
+    """
+    try:
+       if not customer_data.customer_email:
+         raise HTTPException(status_code=400, detail="customer email is required for update.")
+
+       customer_data_dict = customer_data.dict()
+
+       updated_customer = update_customer_service(db, customer_data_dict)
+
+    except:
+          if "message" in updated_customer:
+           raise HTTPException(status_code=400, detail=updated_customer["message"])
+
+          return updated_customer
+>>>>>>> origin/main

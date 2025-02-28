@@ -3,10 +3,16 @@ from fastapi import HTTPException, status
 from app.models.agents import Agent, AgentCredential
 from app.models.enums import VerificationStatus
 from app.utils.utils import check_existing_by_email,check_existing_by_id_and_email,get_credential_by_id
+<<<<<<< HEAD
 from app.crud.agents import create_agent_crud, update_agent_crud, suspend_or_active_agent_crud, verify_agent_crud, get_agent_profile_crud, get_all_agents_crud,create_agent_credential,update_agent_password_crud, get_bookings_by_agent_crud
 import logging
 import bcrypt
 from datetime import date
+=======
+from app.crud.agents import create_agent_crud, update_agent_crud, suspend_or_active_agent_crud, verify_agent_crud, get_agent_profile_crud, get_all_agents_crud,create_agent_credential,update_agent_password_crud
+import logging
+import bcrypt
+>>>>>>> origin/main
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +180,7 @@ def get_all_agents_profile(db: Session) -> list:
         )
     
 
+<<<<<<< HEAD
 def get_bookings_by_agent_service(db, agent_email):
     """
     Retrieves all bookings placed by a specific agent and formats them.
@@ -228,6 +235,8 @@ def get_bookings_by_agent_service(db, agent_email):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
     
 
+=======
+>>>>>>> origin/main
 def update_agent_service(db: Session, agent_data: dict) -> dict:
     """Business logic for updating an agent's details based on agent email."""
     try:

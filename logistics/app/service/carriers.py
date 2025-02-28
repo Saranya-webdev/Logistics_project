@@ -56,6 +56,7 @@ def create_carrier_service(db: Session, carrier_data: dict) -> dict:
         return {"message": f"Error creating carrier: {str(e)}"}
 
 
+<<<<<<< HEAD
 # old for fastapi
 # def update_carrier_service(db: Session, carrier_email: str, carrier_data: dict) -> dict:
 #     """Business logic for updating a carrier's details based on carrier email."""
@@ -90,19 +91,30 @@ def create_carrier_service(db: Session, carrier_data: dict) -> dict:
 #         return {"message": f"Error updating carrier: {str(e)}"}
 
 # new for frontend
+=======
+
+>>>>>>> origin/main
 def update_carrier_service(db: Session, carrier_email: str, carrier_data: dict) -> dict:
     """Business logic for updating a carrier's details based on carrier email."""
     try:
         # Step 1: Check if the carrier exists based on email
         existing_carrier = check_existing_by_email(db, Carrier, "carrier_email", carrier_email)
         if not existing_carrier:
+<<<<<<< HEAD
             raise HTTPException(status_code=404, detail="No carrier found with the given email.")
+=======
+            return {"message": "No carrier found with the given email."}
+>>>>>>> origin/main
 
         # Step 2: Call CRUD to update the carrier's details
         updated_carrier = update_carrier_crud(db, carrier_email, carrier_data)
 
         if not updated_carrier:
+<<<<<<< HEAD
             raise HTTPException(status_code=500, detail="Error updating carrier details.")
+=======
+            return {"message": "Error updating carrier details."}
+>>>>>>> origin/main
 
         return {
             "carrier_id": updated_carrier.carrier_id,
@@ -120,7 +132,13 @@ def update_carrier_service(db: Session, carrier_email: str, carrier_data: dict) 
         }
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
+<<<<<<< HEAD
         raise HTTPException(status_code=500, detail=f"Error updating carrier: {str(e)}")  # ✅ Raise an HTTPException instead of returning a dict
+=======
+        return {"message": f"Error updating carrier: {str(e)}"}
+
+
+>>>>>>> origin/main
 
 
 def suspend_or_activate_carrier(db: Session, carrier_email: str, active_flag: int, remarks: str) -> dict:
