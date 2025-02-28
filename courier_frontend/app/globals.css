@@ -1,0 +1,236 @@
+/* global.css */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Edu+AU+VIC+WA+NT+Pre:wght@400..700&family=Geist+Mono:wght@100..900&family=Inria+Sans:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&family=Londrina+Sketch&family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Edu+AU+VIC+WA+NT+Pre:wght@500&family=Geist+Mono:wght@100..900&family=Inria+Sans:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Londrina+Sketch&family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.background{
+    background-color: #f3f3f3;
+    padding: 20px 30px;
+}
+.Progress{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.overlay{
+    position: fixed;
+    display: block;
+    top: 0;
+    right: 0;
+    width: 670px;
+    height: 100vh;
+    padding: 20px 25px;
+    border-radius: 12px 0px 0px 12px;
+    overflow-y: auto;
+    z-index: 10;
+    transition: transform 6.6000s ease-in-out; 
+    background-color: white;
+}
+.overlay.open {
+    transform: translateY(100%);
+  }
+.modal-overlay{
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(5px); 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.formTitle{
+    display: flex;
+    align-items: start;
+    color: #111827;
+    font-family: "Roboto Condensed";
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+/* globals.css or any included CSS file */
+input.formContent1 , input.formContent2, input.formContent {
+  background-color: #FAFAFA;
+}
+/* globals.css or any included CSS file */
+input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #FAFAFA inset !important; /* Change 'white' to your desired background color */
+  box-shadow: 0 0 0 1000px #FAFAFA inset !important; /* Change 'white' to your desired background color */
+}
+.formContent{
+    display: flex;
+    width: 290px;
+    height: 48px;
+    padding: 16px;
+    color: #111827;
+    font-family: "Roboto Mono";
+    font-size: 12px;
+    align-items: center;
+    border-radius: 12px;
+    background: #FAFAFA;
+}
+.formContent1{
+    display: flex;
+    width: 190px;
+    height: 48px;
+    padding: 16px;
+    color: #111827;
+    font-family: "Roboto Mono";
+    font-size: 12px;
+    align-items: center;
+    border-radius: 12px;
+    background: #FAFAFA;
+}
+.formContent2{
+    display: flex;
+    width: 100%;
+    height: 80px;
+    padding: 16px;
+    color: #111827;
+    font-family: "Roboto Mono";
+    font-size: 12px;
+    align-items: center;
+    border-radius: 12px;
+    background: #FAFAFA;
+}
+.btn, .btn2{
+    display: flex;
+    height: 48px;
+    padding: 16px 30px;
+    align-items: center;
+    gap: 12px;
+    border-radius: 12px;
+    color: #FFF;
+    font-family: Roboto;
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: normal;
+    background:  #074E73;
+}
+.btn1{
+    height: 48px;
+    padding: 0px 30px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    font-family: Roboto;
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: normal;
+    color: #074E73;
+    border: 1px solid #074E73;
+}
+.btn2{
+    display: flex;
+    justify-items: center;
+    align-items: center
+}
+.tbhead{
+    color: #111827;
+    font-family: "Roboto Condensed";
+    font-size: 16px;
+    font-weight: 600;
+    padding: 0px;
+    width: 0px;
+}
+.tTitle{
+    display: flex;
+    width: 100%;
+    height: 30px;
+    color: #111827;
+    font-family: "Roboto Condensed";
+    font-size: 16px;
+    font-weight: 600;
+}
+.size{
+  width: 200px;
+  display: flex;
+  gap: 10px;
+  align-items: start;
+  background-color: aliceblue;
+}
+.itemText{
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    width: 100%;
+    color: #111827;
+    font-family: "Roboto Mono";
+    font-size: 12px;
+    font-weight: 500;
+}
+.itemList{
+    width: 135px;
+    height: 48px;
+    padding: 16px;
+    border-radius: 12px;
+    background: #FAFAFA;
+}
+.checkbox{
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0px;
+  border: none;
+  background-color: #074E73;
+}
+.CC{
+    color: #4972B4;
+    font-family: Roboto;
+    font-size: 22px;
+    font-weight: 700;
+}
+.three{
+    display: inline-flex;
+    align-items: center;
+    gap: 40px;
+}
+.save{
+    display: flex;
+    height: 48px;
+    padding: 16px 30px;
+    align-items: center;
+    gap: 12px;
+    color: #074E73;
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 500;
+    border-radius: 12px;
+    border: 1px solid #074E73;
+}
+.submit{
+    display: flex;
+    height: 48px;
+    padding: 16px 80px;
+    align-items: center;
+    gap: 12px;
+    color: #FFF;
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 500;
+    border-radius: 12px;
+    background-color: #074E73;
+}
+.no-scrollbar::-webkit-scrollbar {
+    display: none; 
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none; 
+    scrollbar-width: none; 
+}
+.tableone{
+    width: 100%;
+    height: 200px;
+    overflow-y: auto;
+}

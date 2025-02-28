@@ -199,21 +199,44 @@ def get_customer_booking_list(customer_email: str, db: Session = Depends(get_db)
 #         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
+# @router.put("/updatecustomer", response_model=CustomerUpdateResponse, status_code=status.HTTP_200_OK)
+# async def update_customer(customer_data: CustomerUpdate, db: Session = Depends(get_db)):
+#     """
+#     Route for updating an customer's details using the request body.
+#     """
+#     try:
+#        if not customer_data.customer_email:
+#          raise HTTPException(status_code=400, detail="customer email is required for update.")
+
+#        customer_data_dict = customer_data.dict()
+
+#        updated_customer = update_customer_service(db, customer_data_dict)
+
+#     except:
+#           if "message" in updated_customer:
+#            raise HTTPException(status_code=400, detail=updated_customer["message"])
+
+#           return updated_customer
+
 @router.put("/updatecustomer", response_model=CustomerUpdateResponse, status_code=status.HTTP_200_OK)
 async def update_customer(customer_data: CustomerUpdate, db: Session = Depends(get_db)):
     """
-    Route for updating an customer's details using the request body.
+    Route for updating a customer's details using the request body.
     """
+    if not customer_data.customer_email:
+        raise HTTPException(status_code=400, detail="Customer email is required for update.")
+
+    customer_data_dict = customer_data.dict()
+
     try:
-       if not customer_data.customer_email:
-         raise HTTPException(status_code=400, detail="customer email is required for update.")
+        updated_customer = update_customer_service(db, customer_data_dict)
+        
+        # Ensure the response matches CustomerUpdateResponse
+        if not isinstance(updated_customer, dict) or "customer_id" not in updated_customer:
+            raise HTTPException(status_code=400, detail="Error updating customer details.")
 
-       customer_data_dict = customer_data.dict()
+        return updated_customer
 
-       updated_customer = update_customer_service(db, customer_data_dict)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
-    except:
-          if "message" in updated_customer:
-           raise HTTPException(status_code=400, detail=updated_customer["message"])
-
-          return updated_customer

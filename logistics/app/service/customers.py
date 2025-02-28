@@ -161,15 +161,86 @@ def update_customer_password_service(db: Session, customer_id: int, new_password
     except Exception as e:
         raise Exception(f"Service error while updating password: {e}")        
 
+# OLD CODE FOR FASTAPI'S UPDATE CUSTOMER
+# def update_customer_service(db: Session, customer_data: dict) -> dict:
+#     """Business logic for updating a customer's details based on customer email."""
 
+#     try:
+#         # Step 1: Check if the customer exists based on email
+#         existing_customer = check_existing_by_email(db, Customer, "customer_email", customer_data["customer_email"])
+#         if not existing_customer:
+#             return {"message": "No customers found with the given email."}  # Return message if no customer is found
+
+#         # Step 2: Exclude fields that shouldn't be updated
+#         fields_to_exclude = ["verification_status", "customer_category", "remarks"]
+#         filtered_data = {key: value for key, value in customer_data.items() if key not in fields_to_exclude and value is not None}
+
+#         # Step 3: Update the customer's details (without modifying customer_email)
+#         updated_customer = update_customer_crud(db, existing_customer.customer_email, filtered_data)
+
+#         if not updated_customer:
+#             return {"message": "Error updating customer details."}
+
+#         # Step 4: Handle business details for corporate customers
+#         business_details = None
+#         if customer_data.get("customer_type") == Type.corporate:
+#             existing_business = db.query(CustomerBusiness).filter(CustomerBusiness.customer_id == updated_customer.customer_id).first()
+#             if existing_business:
+#                 # Update business fields if the customer is a business (corporate)
+#                 business_fields = ["tax_id", "license_number", "designation", "company_name"]
+#                 for field in business_fields:
+#                     if field in customer_data and customer_data[field] is not None:
+#                         setattr(existing_business, field, customer_data[field])
+#             else:
+#                 # Create a new business entry if it doesn't exist
+#                 business_data = {field: customer_data.get(field) for field in business_fields if customer_data.get(field)}
+#                 business_data["customer_email"] = updated_customer.customer_email
+#                 new_business = CustomerBusiness(**business_data)
+#                 db.add(new_business)
+#             business_details = {
+#                 "tax_id": existing_business.tax_id if existing_business else None,
+#                 "license_number": existing_business.license_number if existing_business else None,
+#                 "designation": existing_business.designation if existing_business else None,
+#                 "company_name": existing_business.company_name if existing_business else None
+#             }
+
+#         # Commit changes to the database
+#         db.commit()
+
+#         # Return the updated customer details along with business details
+#         return {
+#             "customer_id": updated_customer.customer_id,
+#             "customer_name": updated_customer.customer_name,
+#             "customer_email": updated_customer.customer_email,
+#             "customer_mobile": updated_customer.customer_mobile,
+#             "customer_address": updated_customer.customer_address,
+#             "customer_city": updated_customer.customer_city,
+#             "customer_state": updated_customer.customer_state,
+#             "customer_country": updated_customer.customer_country,
+#             "customer_pincode": updated_customer.customer_pincode,
+#             "customer_geolocation": updated_customer.customer_geolocation,
+#             "customer_type": updated_customer.customer_type,
+#             "customer_category": updated_customer.customer_category,  # Include customer category if needed
+#             "tax_id": existing_business.tax_id,
+#                 "license_number": existing_business.license_number ,
+#                 "designation": existing_business.designation ,
+#                 "company_name": existing_business.company_name 
+#         }
+
+#     except Exception as e:
+#         logger.error(f"Error in updating customer: {str(e)}")
+#         db.rollback()
+#         return {"message": f"Error updating customer: {str(e)}"}
+
+
+# NEW CODE FOR EDIT CUSTOMER DETAILS IN FRONTEND
 def update_customer_service(db: Session, customer_data: dict) -> dict:
     """Business logic for updating a customer's details based on customer email."""
-
     try:
         # Step 1: Check if the customer exists based on email
         existing_customer = check_existing_by_email(db, Customer, "customer_email", customer_data["customer_email"])
         if not existing_customer:
-            return {"message": "No customers found with the given email."}  # Return message if no customer is found
+            return {"message": "No customers found with the given email."}
 
         # Step 2: Exclude fields that shouldn't be updated
         fields_to_exclude = ["verification_status", "customer_category", "remarks"]
@@ -177,16 +248,17 @@ def update_customer_service(db: Session, customer_data: dict) -> dict:
 
         # Step 3: Update the customer's details (without modifying customer_email)
         updated_customer = update_customer_crud(db, existing_customer.customer_email, filtered_data)
-
         if not updated_customer:
             return {"message": "Error updating customer details."}
 
+        # **Ensure existing_business is always defined**
+        existing_business = None
+
         # Step 4: Handle business details for corporate customers
-        business_details = None
         if customer_data.get("customer_type") == Type.corporate:
             existing_business = db.query(CustomerBusiness).filter(CustomerBusiness.customer_id == updated_customer.customer_id).first()
             if existing_business:
-                # Update business fields if the customer is a business (corporate)
+                # Update business fields if the customer is a corporate entity
                 business_fields = ["tax_id", "license_number", "designation", "company_name"]
                 for field in business_fields:
                     if field in customer_data and customer_data[field] is not None:
@@ -197,17 +269,19 @@ def update_customer_service(db: Session, customer_data: dict) -> dict:
                 business_data["customer_email"] = updated_customer.customer_email
                 new_business = CustomerBusiness(**business_data)
                 db.add(new_business)
-            business_details = {
-                "tax_id": existing_business.tax_id if existing_business else None,
-                "license_number": existing_business.license_number if existing_business else None,
-                "designation": existing_business.designation if existing_business else None,
-                "company_name": existing_business.company_name if existing_business else None
-            }
+                existing_business = new_business  # Assign new business instance
 
         # Commit changes to the database
         db.commit()
 
-        # Return the updated customer details along with business details
+        # **Ensure business_details is valid before returning**
+        business_details = {
+            "tax_id": existing_business.tax_id if existing_business else None,
+            "license_number": existing_business.license_number if existing_business else None,
+            "designation": existing_business.designation if existing_business else None,
+            "company_name": existing_business.company_name if existing_business else None
+        }
+
         return {
             "customer_id": updated_customer.customer_id,
             "customer_name": updated_customer.customer_name,
@@ -220,18 +294,14 @@ def update_customer_service(db: Session, customer_data: dict) -> dict:
             "customer_pincode": updated_customer.customer_pincode,
             "customer_geolocation": updated_customer.customer_geolocation,
             "customer_type": updated_customer.customer_type,
-            "customer_category": updated_customer.customer_category,  # Include customer category if needed
-            "tax_id": existing_business.tax_id,
-                "license_number": existing_business.license_number ,
-                "designation": existing_business.designation ,
-                "company_name": existing_business.company_name 
+            "customer_category": updated_customer.customer_category,
+            **business_details  # Unpack business details safely
         }
 
     except Exception as e:
         logger.error(f"Error in updating customer: {str(e)}")
         db.rollback()
         return {"message": f"Error updating customer: {str(e)}"}
-
 
 
 def suspend_or_activate_customer_service(
@@ -576,7 +646,7 @@ def get_customer_with_booking_list_service(db: Session, customer_email: str) -> 
         "total_cost":booking.total_cost,
         "est_delivery_date":booking.est_delivery_date,
         "booking_date":booking.booking_date,
-        "status": booking.booking_status,
+        "booking_status": booking.booking_status,
         "booking_items":[
             {   "item_id":item.item_id,
                 "booking_id":item.booking_id,

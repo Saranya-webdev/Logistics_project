@@ -56,20 +56,53 @@ def create_carrier_service(db: Session, carrier_data: dict) -> dict:
         return {"message": f"Error creating carrier: {str(e)}"}
 
 
+# old for fastapi
+# def update_carrier_service(db: Session, carrier_email: str, carrier_data: dict) -> dict:
+#     """Business logic for updating a carrier's details based on carrier email."""
+#     try:
+#         # Step 1: Check if the carrier exists based on email
+#         existing_carrier = check_existing_by_email(db, Carrier, "carrier_email", carrier_email)
+#         if not existing_carrier:
+#             return {"message": "No carrier found with the given email."}
 
+#         # Step 2: Call CRUD to update the carrier's details
+#         updated_carrier = update_carrier_crud(db, carrier_email, carrier_data)
+
+#         if not updated_carrier:
+#             return {"message": "Error updating carrier details."}
+
+#         return {
+#             "carrier_id": updated_carrier.carrier_id,
+#             "carrier_name": updated_carrier.carrier_name,
+#             "carrier_email": updated_carrier.carrier_email,
+#             "carrier_mobile": updated_carrier.carrier_mobile,
+#             "carrier_address": updated_carrier.carrier_address,
+#             "carrier_city": updated_carrier.carrier_city,
+#             "carrier_state": updated_carrier.carrier_state,
+#             "carrier_country": updated_carrier.carrier_country,
+#             "carrier_pincode": updated_carrier.carrier_pincode,
+#             "carrier_geolocation": updated_carrier.carrier_geolocation,
+#             "active_flag": updated_carrier.active_flag,
+#             "remarks": updated_carrier.remarks,
+#         }
+#     except Exception as e:
+#         logger.error(f"Unexpected error: {str(e)}")
+#         return {"message": f"Error updating carrier: {str(e)}"}
+
+# new for frontend
 def update_carrier_service(db: Session, carrier_email: str, carrier_data: dict) -> dict:
     """Business logic for updating a carrier's details based on carrier email."""
     try:
         # Step 1: Check if the carrier exists based on email
         existing_carrier = check_existing_by_email(db, Carrier, "carrier_email", carrier_email)
         if not existing_carrier:
-            return {"message": "No carrier found with the given email."}
+            raise HTTPException(status_code=404, detail="No carrier found with the given email.")
 
         # Step 2: Call CRUD to update the carrier's details
         updated_carrier = update_carrier_crud(db, carrier_email, carrier_data)
 
         if not updated_carrier:
-            return {"message": "Error updating carrier details."}
+            raise HTTPException(status_code=500, detail="Error updating carrier details.")
 
         return {
             "carrier_id": updated_carrier.carrier_id,
@@ -87,9 +120,7 @@ def update_carrier_service(db: Session, carrier_email: str, carrier_data: dict) 
         }
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
-        return {"message": f"Error updating carrier: {str(e)}"}
-
-
+        raise HTTPException(status_code=500, detail=f"Error updating carrier: {str(e)}")  # ✅ Raise an HTTPException instead of returning a dict
 
 
 def suspend_or_activate_carrier(db: Session, carrier_email: str, active_flag: int, remarks: str) -> dict:

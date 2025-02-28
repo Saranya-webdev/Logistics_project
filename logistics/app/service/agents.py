@@ -3,9 +3,10 @@ from fastapi import HTTPException, status
 from app.models.agents import Agent, AgentCredential
 from app.models.enums import VerificationStatus
 from app.utils.utils import check_existing_by_email,check_existing_by_id_and_email,get_credential_by_id
-from app.crud.agents import create_agent_crud, update_agent_crud, suspend_or_active_agent_crud, verify_agent_crud, get_agent_profile_crud, get_all_agents_crud,create_agent_credential,update_agent_password_crud
+from app.crud.agents import create_agent_crud, update_agent_crud, suspend_or_active_agent_crud, verify_agent_crud, get_agent_profile_crud, get_all_agents_crud,create_agent_credential,update_agent_password_crud, get_bookings_by_agent_crud
 import logging
 import bcrypt
+from datetime import date
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +172,60 @@ def get_all_agents_profile(db: Session) -> list:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while retrieving agents: {str(e)}"
         )
+    
+
+def get_bookings_by_agent_service(db, agent_email):
+    """
+    Retrieves all bookings placed by a specific agent and formats them.
+    """
+    try:
+        bookings = get_bookings_by_agent_crud(db, agent_email)
+
+        if not bookings:
+            return {  
+                "agent_email": agent_email,
+                "message": "No bookings found for this agent",
+                "bookings": []
+            }
+
+        return {
+            "agent_email": agent_email,
+            "bookings": [
+                {
+                    "booking_id": booking.booking_id,
+                    "customer_id": booking.customer_id,
+                    "booking_by": booking.booking_by,
+                    "from_city": booking.from_city,
+                    "from_pincode": booking.from_pincode,
+                    "to_city": booking.to_city,
+                    "to_pincode": booking.to_pincode,
+                    "carrier_plan": booking.carrier_plan,
+                    "carrier_name": booking.carrier_name,
+                    "pickup_date": booking.pickup_date.strftime("%Y-%m-%d"),
+                    "package_count": str(booking.package_count),
+                    "total_cost":  str(booking.total_cost),
+                    "booking_status": booking.booking_status,
+                    "booking_items": [
+                        {
+                            "item_id": item.item_id,
+                            "item_length": item.item_length,
+                            "item_weight": item.item_weight,
+                            "item_width":item.item_width,
+                            "item_height": item.item_height,
+                            "package_type": item.package_type,
+                        }
+                        for item in booking.booking_items
+                    ],
+                }
+                for booking in bookings
+            ],
+        }
+
+    except HTTPException as http_ex:
+        raise http_ex
+    except Exception as e:
+        logging.error(f"Error retrieving bookings by agent {agent_email}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
     
 
 def update_agent_service(db: Session, agent_data: dict) -> dict:

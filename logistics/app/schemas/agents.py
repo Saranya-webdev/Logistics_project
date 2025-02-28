@@ -1,7 +1,7 @@
 from pydantic import BaseModel, root_validator, Field, validator
 from typing import Optional, List
 from app.models.enums import Category, VerificationStatus
-from app.schemas.bookings import BookingSummary
+from app.schemas.bookings import BookingDetailedResponse
 
 class Agent(BaseModel):
     agent_name: str
@@ -100,26 +100,38 @@ class AgentResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class AgentBookingItems(BaseModel):
+    item_id: int
+    item_weight: float
+    item_length: float
+    item_width: float
+    item_height: float
+    package_type: str 
+
+class AgentBookings(BaseModel):
+    booking_id: int
+    customer_id: int
+    booking_by: str
+    from_city: str
+    from_pincode: str
+    to_city: str
+    to_pincode: str
+    carrier_plan: str
+    carrier_name: str
+    pickup_date: str
+    package_count: str
+    total_cost: str
+    booking_status: str
+    booking_items:List[AgentBookingItems] = []
+
 
 class AgentBookingListResponse(BaseModel):
-    agent_id: int
-    agent_name: str
-    agent_mobile: str
     agent_email: str
-    agent_address: str
-    agent_city: str
-    agent_state: str
-    agent_country: str
-    agent_pincode: Optional[str]
-    agent_geolocation: Optional[str]
-    agent_businessname: Optional[str]
-    tax_id: Optional[str]
-    bookings: List[BookingSummary]
-
+    bookings: List[AgentBookings]
+    
     class Config:
         from_attributes = True
-
-
+ 
 class SuspendOrActiveRequest(BaseModel):
     agent_email: str
     active_flag: int

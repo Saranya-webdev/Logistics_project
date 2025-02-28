@@ -1,6 +1,10 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./src/**/*.{js,jsx,ts,tsx}"],
+  content: [
+    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
   theme: {
     extend: {
       fontFamily: {
@@ -9,20 +13,8 @@ export default {
         Condensed: ['Roboto Condensed'],
         Inter: ['Inter'],
         Roboto: ['Roboto'],
-      },
-            boxShadow: {
-              'custom-glow': '0 0 1.5px rgba(0, 0, 0, 25%)',
-            },
-          },
-        },
-        plugins: [],
-        module: {
-          rules: [
-            {
-              test: /\.css$/i,
-              use: ["style-loader", "css-loader"],
-            },
-          ],
-        },
-      };
-      
+    },
+    },
+  },
+  plugins: [],
+};

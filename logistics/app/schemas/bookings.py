@@ -70,7 +70,7 @@ class BookingBase(BaseModel):
     total_cost: float
     est_delivery_date: date
     booking_date: date
-    # booking_status: str
+    booking_status: str
     customer_id: int
 
 
@@ -115,6 +115,7 @@ class PackageDetails(BaseModel):
     total_cost: float
     est_delivery_date: date
     booking_date: date
+    booking_by: str
 
 
 class BookingCreateRequeast(BaseModel):
@@ -178,9 +179,10 @@ class Address(BaseModel):
     Name: str
     Mobile: str
     Email: str
-    AddressLine_1: str
-    AddressLine_2: str
-    AddressLine_3: str
+    # AddressLine_1: str
+    # AddressLine_2: str
+    # AddressLine_3: str
+    Address: str
     City: str
     StateProvinceCode: str
     PostalCode: str
@@ -188,8 +190,8 @@ class Address(BaseModel):
 
 
 class ShippingRateRequest(BaseModel):
-    UserId: str
-    UserType: str
+    # UserId: str
+    # UserType: str
     ship_to_address: Address
     ship_from_address:Address
     package_details: BookingItemBase

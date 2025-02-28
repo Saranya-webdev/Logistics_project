@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from app.models.enums import VerificationStatus, Role
 
 class Associates(BaseModel):
@@ -109,3 +109,33 @@ class AssociatesCredentialResponse(BaseModel):
 class AssociatesPasswordUpdate(BaseModel):
     associates_id: int
     new_password: str        
+
+
+class AssociateBookingItems(BaseModel):
+    item_id: int
+    item_weight: float
+    item_length: float
+    item_width: float
+    item_height: float
+    package_type: str 
+
+class AssociateBookings(BaseModel):
+    booking_id: int
+    customer_id: int
+    booking_by: str
+    from_name: str
+    to_name: str
+    carrier_name: str
+    pickup_date: str
+    package_count: str
+    total_cost: str
+    booking_status: str
+    booking_items:List[AssociateBookingItems] = []
+
+
+class AssociateBookingListResponse(BaseModel):
+    associates_email: str
+    bookings: List[AssociateBookings]
+    
+    class Config:
+        from_attributes = True    

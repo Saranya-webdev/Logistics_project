@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from app.models.thisaiprofiles import Associate,AssociatesCredential
 from app.models.enums import VerificationStatus
 from app.utils.utils import check_existing_by_email, check_existing_by_id_and_email,get_credential_by_id
-from app.crud.thisaiprofiles import create_associates_crud, update_associates_crud, suspend_or_activate_associates_crud, verify_associate_crud,get_associates_profile_crud,get_associates_profiles_list_crud, create_associates_credential,  update_associates_password_crud
+from app.crud.thisaiprofiles import create_associates_crud, update_associates_crud, suspend_or_activate_associates_crud, verify_associate_crud,get_associates_profile_crud,get_associates_profiles_list_crud, create_associates_credential,  update_associates_password_crud,get_bookings_by_associate_crud
 import logging
 import bcrypt
 
@@ -263,3 +263,50 @@ def get_associatess_profile_list(db: Session) -> list:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while retrieving associates profiles: {str(e)}"
         )
+
+
+def get_bookings_by_associate_service(db, associates_email):
+    """
+    Retrieves all bookings placed by a specific associate and formats them.
+    """
+    try:
+        bookings = get_bookings_by_associate_crud(db, associates_email)
+
+        if not bookings:
+            raise HTTPException(status_code=404, detail="No bookings found for this associate.")
+
+        return {
+            "associates_email": associates_email,
+            "bookings": [
+                {
+                    "booking_id": booking.booking_id,
+                    "customer_id": booking.customer_id,
+                    "booking_by": booking.booking_by,
+                    "from_name": booking.from_name,
+                    "to_name": booking.to_name,
+                    "carrier_name": booking.carrier_name,
+                    "pickup_date": booking.pickup_date.strftime("%Y-%m-%d"),
+                    "package_count": str(booking.package_count),
+                    "total_cost":  str(booking.total_cost),
+                    "booking_status": booking.booking_status,
+                    "booking_items": [
+                        {
+                            "item_id": item.item_id,
+                            "item_length": item.item_length,
+                            "item_weight": item.item_weight,
+                            "item_width":item.item_width,
+                            "item_height": item.item_height,
+                            "package_type": item.package_type,
+                        }
+                        for item in booking.booking_items
+                    ],
+                }
+                for booking in bookings
+            ],
+        }
+
+    except HTTPException as http_ex:
+        raise http_ex
+    except Exception as e:
+        logging.error(f"Error retrieving bookings by associate {associates_email}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

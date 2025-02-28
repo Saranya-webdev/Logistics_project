@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.schemas.agents import AgentCreate, AgentResponse, AgentUpdate, AgentUpdateResponse, SuspendOrActiveResponse, SuspendOrActiveRequest, VerifyStatusResponse, VerifyStatusRequest, AgentCredentialCreate, AgentCredentialResponse, AgentPasswordUpdate
+from app.schemas.agents import AgentCreate, AgentResponse, AgentUpdate, AgentUpdateResponse, SuspendOrActiveResponse, SuspendOrActiveRequest, VerifyStatusResponse, VerifyStatusRequest, AgentCredentialCreate, AgentCredentialResponse, AgentPasswordUpdate,AgentBookingListResponse
 from app.databases.mysqldb import get_db
 import logging
-from app.service.agents import update_agent_service, verify_agent_service, suspend_or_activate_agent, get_agent_profile, get_all_agents_profile, create_agent_service, create_agent_credential_service, update_agent_password_service
+from app.service.agents import update_agent_service, verify_agent_service, suspend_or_activate_agent, get_agent_profile, get_all_agents_profile, create_agent_service, create_agent_credential_service, update_agent_password_service, get_bookings_by_agent_service
 
 router = APIRouter()
 
@@ -167,6 +167,19 @@ def get_all_agents_profiles_endpoint(db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail=f"An unexpected error occurred: {str(e)}")
 
+
+@router.get("/{agent_email}/bookings", response_model=AgentBookingListResponse)
+def get_bookings_by_agent(agent_email: str, db: Session = Depends(get_db)):
+    """
+    Retrieve the list of bookings placed by an agent.
+    """
+    try:
+        return get_bookings_by_agent_service(db, agent_email)
+    except HTTPException as http_ex:
+        raise http_ex  # Re-raise FastAPI HTTP exceptions
+    except Exception as e:
+        logging.error(f"Error retrieving bookings for agent {agent_email}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error. Please try again later.")
 
 
 # Update agent by ID
