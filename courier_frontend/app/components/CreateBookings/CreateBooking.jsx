@@ -1,206 +1,108 @@
-// import React, { useState } from 'react';
-// import OverlayOne from '../../components/Overlays/OverlayOne';
-// import OverlayTwo from '../../components/Overlays/OverlayTwo';
-// import OverlayThree from '../../components/Overlays/OverlayThree';
-
-// const CreateBookingPage = () => {
-//   const initialFormData = {
-//     ship_to_address: {
-//       Name: '',
-//       Mobile: '',
-//       Email: '',
-//       Address: '',
-//       City: '',
-//       StateProvinceCode: '',
-//       PostalCode: '',
-//       CountryCode: '',
-//     },
-//     ship_from_address: {
-//       Name: '',
-//       Mobile: '',
-//       Email: '',
-//       Address: '',
-//       City: '',
-//       StateProvinceCode: '',
-//       PostalCode: '',
-//       CountryCode: '',
-//     },
-//     package_details: {
-//       weight: '',
-//       length: '',
-//       width: '',
-//       height: '',
-//       package_type: '',
-//       pickup_date: '',
-//       package_count: 0,
-//     },
-//   };
-
-//   const [currentStep, setCurrentStep] = useState(0);
-//   const [formData, setFormData] = useState(initialFormData);
-//   const [shippingRates, setShippingRates] = useState(null);
-
-//   const handleClose = () => {
-//     setCurrentStep(0);
-//     setFormData(initialFormData);
-//     setShippingRates(null);
-//   };
-
-//   const renderOverlay = () => {
-//     console.log('FormData before rendering overlay:', formData); // Debug log
-//     switch (currentStep) {
-//       case 0:
-//         return (
-//           <OverlayOne
-//             onClose={handleClose}
-//             formData={formData}
-//             setFormData={setFormData}
-//             setCurrentStep={setCurrentStep}
-//           />
-//         );
-//       case 1:
-//         return (
-//           <OverlayTwo
-//             onClose={handleClose}
-//             formData={formData}
-//             setFormData={setFormData}
-//             setCurrentStep={setCurrentStep}
-//             setShippingRates={setShippingRates}
-//           />
-//         );
-//       case 2:
-//         return (
-//           <OverlayThree
-//             onClose={handleClose}
-//             formData={formData}
-//             setFormData={setFormData}
-//             setCurrentStep={setCurrentStep}
-//             shippingRates={shippingRates}
-//           />
-//         );
-//       default:
-//         return null;
-//     }
-//   };
-
-//   return (
-//     <div className="p-6 max-w-md mx-auto">
-//       <h2 className="text-xl font-bold mb-4">Create Booking</h2>
-//       <button
-//         className="bg-blue-500 text-white px-4 py-2 rounded"
-//         onClick={() => setCurrentStep(0)}
-//       >
-//         Create Booking
-//       </button>
-//       {renderOverlay()}
-//     </div>
-//   );
-// };
-
-// export default CreateBookingPage;
-
-// import React, { useState } from 'react';
-// import OverlayOne from './OverlayOne';
-
-// function CreateBooking() {
-//   const [formData, setFormData] = useState({
-//     ship_to_address: {
-//       Name: '',
-//       Mobile: '',
-//       Email: '',
-//       Address: '',
-//       City: '',
-//       StateProvinceCode: '',
-//       PostalCode: '',
-//       CountryCode: '',
-//     },
-//     ship_from_address: {
-//       Name: '',
-//       Mobile: '',
-//       Email: '',
-//       Address: '',
-//       City: '',
-//       StateProvinceCode: '',
-//       PostalCode: '',
-//       CountryCode: '',
-//     },
-//     package_details: {
-//       weight: '',
-//       length: '',
-//       width: '',
-//       height: '',
-//       package_type: '',
-//       pickup_date: '',
-//       package_count: 0,
-//     },
-//   });
-//   const [currentStep, setCurrentStep] = useState(0);
-
-//   const handleClose = () => {
-//     // Logic to close the overlay
-//   };
-
-//   return (
-//     <OverlayOne
-//       onClose={handleClose}
-//       formData={formData}
-//       setFormData={setFormData}
-//       setCurrentStep={setCurrentStep}
-//     />
-//   );
-// }
-// export default CreateBooking;
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import OverlayOne from "../Overlays/OverlayOne";
 import OverlayTwo from '../Overlays/OverlayTwo';
 import OverlayThree from '../Overlays/OverlayThree';
+import BookingReview from '@/app/bookings/bookingdetails/page';
 
-function ParentOverlayManager({ onClose }) {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState({
-    ship_to_address: { Name: '', Mobile: '', Email: '', Address: '', City: '', StateProvinceCode: '', PostalCode: '', CountryCode: '' },
-    ship_from_address: { Name: '', Mobile: '', Email: '', Address: '', City: '', StateProvinceCode: '', PostalCode: '', CountryCode: '' },
-    package_details: { weight: '', length: '', width: '', height: '', package_type: '', pickup_date: '', package_count: 0 },
+function ParentOverlayManager({ onClose, startFromQuotation = false, quotationData = null }) {
+  // Determine initial step based on whether coming from quotation
+  const [currentStep, setCurrentStep] = useState(startFromQuotation ? 0 : 0);
+
+  const [formData, setFormData] = useState(() => {
+    if (startFromQuotation && quotationData) {
+      // Prefill formData with quotation details
+      return {
+        ...quotationData,
+        package_details: quotationData?.package_details?.length > 0 
+  ? quotationData.package_details 
+  : [{
+      weight: '',
+      length: '',
+      width: '',
+      height: '',
+      package_type: '',
+      pickup_date: '',
+    }]
+    ,
+        booking_items: [],
+      };
+    }
+
+    // Default formData for new booking
+    const initialPackageDetails = Array.from({ length: 1 }, () => ({
+      weight: '',
+      length: '',
+      width: '',
+      height: '',
+      package_type: '',
+      pickup_date: '',
+    }));
+    return {
+      ship_to_address: { Name: '', Mobile: '', Email: '', Address: '', City: '', StateProvinceCode: '', PostalCode: '', CountryCode: '' },
+      ship_from_address: { Name: '', Mobile: '', Email: '', Address: '', City: '', StateProvinceCode: '', PostalCode: '', CountryCode: '' },
+      package_details: initialPackageDetails,
+      package_count: 1,
+      booking_items: [],
+    };
   });
+
   const [shippingRates, setShippingRates] = useState([]);
 
-  const renderCurrentStep = () => {
+  useEffect(() => {
+    console.log("Updated shippingRates in ParentOverlayManager:", shippingRates);
+  }, [shippingRates]);
+
+  useEffect(() => {
+    if (formData.package_count > 0) {
+      setFormData((prevFormData) => {
+        const newPackageDetails = Array.from({ length: prevFormData.package_count }, (_, index) => ({
+          weight: prevFormData.package_details[index]?.weight || '',
+          length: prevFormData.package_details[index]?.length || '',
+          width: prevFormData.package_details[index]?.width || '',
+          height: prevFormData.package_details[index]?.height || '',
+          package_type: prevFormData.package_details[index]?.package_type || '',
+          pickup_date: prevFormData.package_details[index]?.pickup_date || '',
+        }));
+
+        return {
+          ...prevFormData,
+          package_details: newPackageDetails,
+        };
+      });
+    }
+  }, [formData.package_count]);
+
+  // Function to create booking and shipment label
+  const handleFinalSubmission = () => {
+    console.log(" Booking Confirmed! Creating shipment label...");
+    alert("Booking & Shipment Label Created Successfully!");
+    onClose(); // Close the overlay manager
+  };
+
+  useEffect(() => {
+    console.log("Received quotationData in ParentOverlayManager:", quotationData);
+  }, [quotationData]);
+  
+
+  // Dynamically render steps
+  const renderStep = () => {
     switch (currentStep) {
       case 0:
-        return (
-          <OverlayOne
-            onClose={onClose}
-            setCurrentStep={setCurrentStep}
-            formData={formData}
-            setFormData={setFormData}
-          />
-        );
+        return <OverlayOne onClose={onClose} setCurrentStep={setCurrentStep} formData={formData} setFormData={setFormData} />;
       case 1:
-        return (
-          <OverlayTwo
-            onClose={onClose}
-            setCurrentStep={setCurrentStep}
-            formData={formData}
-            setFormData={setFormData}
-          />
-        );
+        return <OverlayTwo onClose={onClose} setCurrentStep={setCurrentStep} formData={formData} setFormData={setFormData} setShippingRates={setShippingRates} />;
       case 2:
-        return (
-          <OverlayThree
-            onClose={onClose}
-            formData={formData}
-            setFormData={setFormData}
-            setCurrentStep={setCurrentStep}
-            shippingRates={shippingRates}
-          />
-        );
+        return <OverlayThree onClose={onClose} formData={formData} setFormData={setFormData} setCurrentStep={setCurrentStep} shippingRates={shippingRates} />;
+      case 3:
+        return <BookingReview formData={formData} setCurrentStep={setCurrentStep} onClose={onClose} onProceed={handleFinalSubmission} />;
       default:
         return null;
     }
   };
 
-  return <div>{renderCurrentStep()}</div>;
+  return <div>{renderStep()}</div>;
 }
 
 export default ParentOverlayManager;
+
+

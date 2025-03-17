@@ -1,14 +1,7 @@
 {
   "compilerOptions": {
     "paths": {
-<<<<<<< HEAD
       "@/*": ["./*"]
     }
   }
 }
-=======
-      "@/*": ["./src/*"]
-    }
-  }
-}
->>>>>>> origin/main

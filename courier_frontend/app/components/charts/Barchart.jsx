@@ -49,7 +49,7 @@ const options = {
 
 const ResponsiveBarChart = () => {
   return (
-    <div className="w-[50%]  h-[300px] max-w-2xl p-4 bg-white rounded-lg shadow-[0px_0px_1.5px_0px_rgba(0,0,0,0.25)]">
+    <div className="w-[100%]  h-[100%] max-w-2xl p-4 rounded-lg shadow-[0px_0px_1.5px_0px_rgba(0,0,0,0.25)]">
       <div className="flex items-center gap-[6px] mb-[2px]">
              <FaWallet style={{ color: '#4c62b8', fontSize: '18px' }} /> 
              <h2 className="text-gray-900 font-semibold font-Condensed"> Income</h2>
@@ -59,7 +59,8 @@ const ResponsiveBarChart = () => {
                <button className='flex h-[21px] p-1 bg-[#e8fff4] rounded-[156.74px] border border-[#1dbf73] text-[#1dbf73] text-[10px] items-center'>< FaArrowUp style={{fontSize: '15px', color: '#1DBF73'}}/>12%</button>
             <p>vs last years</p>
             </div>
-      <div className="relative w-[100%] h-30 pl-4">
+      <div className="w-[70%] h-full">
+      {/* <div className="flex relative w-[100%] h-50"> */}
         <Bar data={data} options={options} />
       </div>
     </div>

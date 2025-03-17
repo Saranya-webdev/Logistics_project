@@ -9,6 +9,8 @@ const fetcher = (url) => fetch(url).then((res) => res.json());
 
 const EntityList = dynamic(() => import('../components/entitylist'), { ssr: false });
 const CombinedCharts = dynamic(() => import('../components/charts/combinedcharts'), { ssr: false });
+const Bookingtable = dynamic(() => import('../components/Bookingtable'), { ssr: false });
+
 
 const API_BASE = "http://127.0.0.1:8000/thisaiapi";
 
@@ -16,8 +18,8 @@ export default function Home() {
   const { data, error } = useSWR(`${API_BASE}/carriers/carriersprofilelist/`, fetcher);
 
   const [selectedcarrier, setSelectedcarrier] = useState(null);
-//   const [bookingData, setBookingData] = useState([]);
   const [carrierData, setcarrierData] = useState(null);
+  const [bookingData, setBookingData] = useState([]);
 
   const fetchcarrierData = async (carrier) => {
     if (!carrier?.carrier_email) {
@@ -26,31 +28,38 @@ export default function Home() {
     }
   
     const encodedEmail = encodeURIComponent(carrier.carrier_email);
+    console.log("Fetching carrier profile for:", encodedEmail);
   
     try {
-      const profileRes = await fetch(`${API_BASE}/carriers/${encodedEmail}/profile/`);
-      
+      const profileRes = await fetch(`${API_BASE}/carriers/${encodedEmail}/profile`);
   
       if (!profileRes.ok) {
         const errorText = await profileRes.text();
-        console.error("carrier profile fetch error:", errorText);
+        console.error("Carrier profile fetch error:", errorText);
         return;
       }
-      setcarrierData(await profileRes.json());
+  
+      const carrierData = await profileRes.json();
+      console.log("Carrier Data:", carrierData);
+      setcarrierData(carrierData);
     } catch (error) {
       console.error("Network error fetching carrier data:", error);
     }
   };
   
+  
 
   useEffect(() => {
     if (data && data.length > 0) {
+      console.log("Fetched Carrier List:", data);
+      
       const sortedcarriers = data.sort((a, b) => a.carrier_name.localeCompare(b.carrier_name));
       const firstcarrier = sortedcarriers[0];
       setSelectedcarrier(firstcarrier);
       fetchcarrierData(firstcarrier);
     }
   }, [data]);
+  
 
   const handleEntityClick = (carrier) => {
     if (carrier?.carrier_email !== selectedcarrier?.carrier_email) {
@@ -65,21 +74,27 @@ export default function Home() {
   if (!data) return <div>Loading...</div>;
 
   return (
-    <div className="transition-all duration-300 flex w-full h-screen relative bg-[#f3f3f3] overflow-y-auto">
-      <div className="flex bg-white w-full h-full rounded-[12px] p-4 gap-5 overflow-y-auto">
+    <div className="flex bg-white h-[100%] w-[100%] rounded-[12px] p-4 gap-5">
         <EntityList
           endpoint={`${API_BASE}/carriers/carriersprofilelist/`}
           entityType="carrier"
           onEntityClick={handleEntityClick}
         />
-        <div className="flex w-full lg:gap-2 md:w-full sm:gap-4 h-full lg:flex-col md:flex-col md:overflow-y-auto md:gap-10 overflow-hidden">
+        <div className="flex w-[100%] lg:w-[100%] lg:gap-2 md:w-[100%] sm:gap-4 h-[100%] md:flex-col overflow-y-auto no-scrollbar overflow-hidden md:gap-6">
         <CombinedCharts 
   entityType="carrier" 
   entityName={selectedcarrier?.carrier_name || "carrier"} 
   selectedEntity={selectedcarrier} 
 />
+        
+
+{selectedcarrier?.carrier_email ? (
+  <Bookingtable selectedEntity={selectedcarrier} bookings={bookingData} userType="carrier" />
+) : (
+  <div>Loading Carrier Data...</div>
+)}
         </div>
-      </div>
+     
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaTimesCircle } from "react-icons/fa";
+import { FaTimesCircle, FaCaretDown } from "react-icons/fa";
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "http://localhost:8000";
 
@@ -77,7 +77,10 @@ export default function EntityForm({ entityType, onClose, initialData }) {
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
+      setFormData({
+        ...initialData,
+        customer_personal: initialData.designation || initialData.tax_id || initialData.company_name ? "business" : "personal"
+      });
     } else {
       setFormData(
         Object.fromEntries(
@@ -90,34 +93,99 @@ export default function EntityForm({ entityType, onClose, initialData }) {
     }
   }, [initialData, JSON.stringify(config.fields)]);
   
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Validate geolocation format for all relevant fields
+  const geoFields = {
+    customer_geolocation: formData.customer_geolocation,
+    agent_geolocation: formData.agent_geolocation,
+    carrier_geolocation: formData.carrier_geolocation
+  };
   
+  for (const [field, value] of Object.entries(geoFields)) {
+    if (value) {
+      const [lat, long] = value.split(",").map(coord => parseFloat(coord.trim()));
+  
+      if (isNaN(lat) || isNaN(long)) {
+        alert(`Invalid geolocation format in ${field}. Please use 'latitude,longitude' format.`);
+        return;
+      }
+  
+      // Check if within US boundaries
+      if (lat < 24.396308 || lat > 49.384358 || long < -125.000000 || long > -66.934570) {
+        alert(`Invalid geolocation range in ${field}. Please enter a valid US location.`);
+        return;
+      }
+    }
+  }
+
+  const defaultFieldLabels = {
+    tax_id: "Tax ID",
+    designation: "Designation",
+    license_number: "License Number",
+    company_name: "Company Name",
+  };
+  
+  const updatedFieldLabels = { ...defaultFieldLabels, ...fieldLabels };
+  
+  
+  console.log("Updated Field Labels:", updatedFieldLabels);
+  console.log("Third Set Fields:", config.fields?.thirdSet);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleTypeSelection = (type) => {
-    setFormData((prev) => ({ ...prev, customer_personal: type }));
+    setFormData((prevData) => {
+      if (type === "business") {
+        return {
+          ...prevData,
+          customer_personal: "business",
+          tax_id: prevData.tax_id || "", // Ensure business fields exist
+          license_number: prevData.license_number || "",
+          designation: prevData.designation || "",
+          company_name: prevData.company_name || "",
+        };
+      } else {
+        const { tax_id, license_number, designation, company_name, ...updatedData } = prevData;
+        return {
+          ...updatedData,
+          customer_personal: "personal",
+        };
+      }
+    });
   };
   
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!config.endpoint) {
-      alert("API endpoint is missing!");
-      return;
+    console.log("Submitting Data:", formData);
+  
+    const updatedData = { ...formData };
+  
+    // Remove business fields if the type is personal
+    if (updatedData.customer_personal === "personal") {
+      delete updatedData.tax_id;
+      delete updatedData.license_number;
+      delete updatedData.designation;
+      delete updatedData.company_name;
     }
 
-    const method =  "PUT";
+    // If customer_personal is "personal", remove business-related fields
+  if (updatedData.customer_personal === "personal") {
+    delete updatedData.tax_id;
+    delete updatedData.designation;
+    delete updatedData.company_name;
+    delete updatedData.license_number;
+  }
 
     try {
       const response = await fetch(`${API_BASE_URL}${config.endpoint}`, {
-        method: method,
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(updatedData),
       });
 
       if (!response.ok) {
@@ -126,17 +194,22 @@ export default function EntityForm({ entityType, onClose, initialData }) {
         alert(`Error: ${errorMessage}`);
         throw new Error(errorMessage);
       }
-      
 
-      alert(`Successfully ${ "updated" } ${entityType}`);
-      onClose();
+      const responseData = await response.json();
+    console.log("Response Data:", responseData);
+
+    setFormData(responseData);
+      
+      setSuccessMessage(`Successfully updated ${entityType}`);
+
     } catch (error) {
       alert(`Error ${ "updating" } ${entityType}: ${error.message}`);
     }
   };
 
   return (
-    <div className="overlay">
+    <div className="modal-overlay">
+    <div className="overlay p-6 bg-white rounded-lg shadow-lg">
       <div className="flex justify-between items-center mb-8">
         <h1 className="CC">{config.title}</h1>
         <FaTimesCircle onClick={onClose} className="text-xl text-[#074E73] cursor-pointer" />
@@ -146,30 +219,68 @@ export default function EntityForm({ entityType, onClose, initialData }) {
         <div className="grid grid-cols-2 gap-4 mb-6">
           {Array.isArray(config.fields)
             ? config.fields.map((field, index) => (
-                <div key={index} className="flex flex-col col-span-1">
-                  <input
-                    type="text"
-                    name={field}
-                    placeholder={fieldLabels[field] || field.replace(/_/g, " ").replace(/\b\w/g, char => char.toUpperCase())}
-                    className="w-full px-4 py-3 bg-neutral-50 placeholder-[#FAFAFA] focus:ring-0 rounded-xl border-transparent focus:border-transparent font-mono text-xs"
-                    value={formData[field] || ""}
-                    onChange={handleChange}
-                  />
-                </div>
-              ))
-            : (config.fields?.firstSet || []).map((field, index) => (
-                <div key={index} className="flex flex-col col-span-1">
-                  <input
-                    type="text"
-                    name={field}
-                    placeholder={fieldLabels[field] || field.replace(/_/g, " ").replace(/\b\w/g, char => char.toUpperCase())}
-                    className="w-full px-4 py-3 bg-neutral-50 placeholder-[#FAFAFA] focus:ring-0 rounded-xl border-transparent focus:border-transparent font-mono text-xs"
-                    value={formData[field] || ""}
-                    onChange={handleChange}
-                  />
-                </div>
-              ))}
+              <div key={index} className="flex flex-col relative">
+                 {field.includes("category") ? (
+                   <div className="dropdown">
+            <select
+              name={field}
+              value={formData[field] || ""}
+              onChange={handleChange}
+              className="outline-none w-[310px] appearance-none bg-[#fafafa] text-[#AABOBA] text-sm px-0 py-0"
+            >
+              <option value="">Select Category</option>
+              <option value="tier_1">Tier 1</option>
+              <option value="tier_2">Tier 2</option>
+              <option value="tier_3">Tier 3</option>
+            </select>
+            <div className="absolute right-4 pointer-events-none">
+                                      <FaCaretDown />
+                                    </div>
+                                    </div>
+          ) : (
+            <input
+              type="text"
+              name={field}
+              placeholder={fieldLabels[field] || field.replace(/_/g, " ").replace(/\b\w/g, char => char.toUpperCase())}
+              className="w-full px-4 py-3 bg-neutral-50 placeholder-[#AABOBA] focus:ring-0 rounded-xl border-transparent focus:border-transparent font-Mono text-xs"
+              value={formData[field] || ""}
+              onChange={handleChange}
+            />
+          )}
         </div>
+      ))
+            : (config.fields?.firstSet || []).map((field, index) => (
+              <div key={index} className="flex flex-col relative">
+                  {field.includes("category") ? (
+                    <div className="dropdown">
+            <select
+              name={field}
+              value={formData[field] || ""}
+              onChange={handleChange}
+              className="outline-none w-[310px] appearance-none font-Mono bg-[#fafafa] text-[#AABOBA] text-xs px-0 py-0"
+            >
+              <option value="">Category</option>
+              <option value="tier_1">Tier 1</option>
+              <option value="tier_2">Tier 2</option>
+              <option value="tier_3">Tier 3</option>
+            </select>
+            <div className="absolute right-6 pointer-events-none">
+                                      <FaCaretDown />
+                                    </div>
+                                    </div>
+          ) : (
+            <input
+              type="text"
+              name={field}
+              placeholder={fieldLabels[field]}
+              className="w-full px-4 py-3 bg-neutral-50 placeholder-[#AABOBA] focus:ring-0 rounded-xl border-transparent focus:border-transparent font-Mono text-xs"
+              value={formData[field] || ""}
+              onChange={handleChange}
+            />
+          )}
+        </div>
+      ))}
+</div>
   
         {!Array.isArray(config.fields) && (
           <div className="mb-6">
@@ -191,32 +302,42 @@ export default function EntityForm({ entityType, onClose, initialData }) {
           </div>
         )}
   
-        {formData.customer_personal === "business" && !Array.isArray(config.fields) && (
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            {(config.fields?.thirdSet || []).map((field, index) => (
-              <div key={index} className="flex flex-col col-span-1">
-                <input
-                  type="text"
-                  name={field}
-                  placeholder={fieldLabels[field]}
-                  className="w-full px-6 py-3 bg-neutral-50 placeholder-[#FAFAFA] focus:ring-0 rounded-xl border-transparent focus:border-transparent font-mono text-xs"
-                  value={formData[field] || ""}
-                  onChange={handleChange}
-                />
-              </div>
-            ))}
-          </div>
-        )}
+  {formData.customer_personal === "business" && Array.isArray(config.fields?.thirdSet) && (
+  <div className="grid grid-cols-2 gap-4 mb-6">
+    {config.fields.thirdSet.map((field, index) => (
+      <div key={index} className="flex flex-col col-span-1">
+        <input
+  key={field} // This forces re-render on field updates
+  type="text"
+  name={field}
+  placeholder={
+    fieldLabels[field] ||
+    field.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
+  }
+  className="w-full px-4 py-3 bg-neutral-50 placeholder-[#AABOBA] focus:ring-0 rounded-xl border-transparent focus:border-transparent font-Mono text-xs"
+  value={formData[field] || ""}
+  onChange={handleChange}
+/>
+
+      </div>
+    ))}
+  </div>
+)}
+
   
         <div className="flex justify-center">
           <button 
             type="submit" 
-            className="btn mt-6 rounded-xl px-8 py-3 text-lg w-32 text-center bg-blue-500 text-white"
+            className="btn mt-6 rounded-xl px-8 py-3 text-lg text-center bg-blue-500 text-white"
           >
             Update
           </button>
         </div>
+        {successMessage && (
+          <p className="mt-10 text-green-600 text-center font-Roboto text-[20px]">{successMessage}</p>
+        )}
       </form>
+    </div>
     </div>
   ); 
 }

@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import Barchart from "../components/charts/Barchart";
+import Doughnut from "../components/charts/Doughnut";
 
 const Bookingtable = dynamic(() => import("../components/Bookingtable"), { ssr: false });
 const CombinedCharts = dynamic(() => import("../components/charts/combinedcharts"), { ssr: false });
@@ -28,15 +30,12 @@ export default function BookingPage() {
 
   return (
    
-<div className="transition-all duration-300 flex w-full h-screen relative bg-[#f3f3f3] overflow-y-auto">
-      <div className="flex bg-white w-full h-full rounded-[12px] p-4 gap-5 overflow-y-auto">
+<div className=" h-[100%] w-[100%] rounded-[12px] p-4">
         
-        <div className="flex w-full lg:gap-2 md:w-full sm:gap-4 h-full lg:flex-col md:flex-col md:overflow-y-auto md:gap-10 overflow-hidden">
+        <div className="flex w-[100%] lg:w-[100%] lg:gap-2 md:w-[100%] bg-white p-4 rounded-xl sm:gap-4 h-[100%] flex-col overflow-y-auto no-scrollbar overflow-hidden md:gap-6 ">
         <CombinedCharts entityType="booking" />
 
-
-        <Bookingtable selectedEntity={{ bookings: bookingData }} userType="booking" />
-        </div>
+        <Bookingtable selectedEntity={{ bookings: bookingData }} userType="booking" className="max-w-full overflow-hidden"/>
       </div>
     </div>
   );

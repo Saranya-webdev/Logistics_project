@@ -1,182 +1,172 @@
-// // OverlayThree.jsx
-
-// // !ShippingTable
-// import React, { useState } from 'react';
-// import { FaTimesCircle, } from 'react-icons/fa';
-// import ProgressBar from './ProgressBar';
-// import ShippingTable from './ShippingTable';
-// import OverlayTwo from './OverlayTwo';
-  
-// // !CreateCustomer2
-
-//   function OverlayThree({onClose, setCurrentStep, currentStep}){
-//     const [formData, setFormData] = useState({});
-//   // const [currentStep, setCurrentStep] = useState(1); // Track current step
-//   const steps = ['Address', 'Package', 'Carrier'];
-//   const [errors, setErrors] = useState({});
-
-//   const handleSubmit = (e) => {
-//     e.preventDefault();
-//     if (validate()) {
-//       console.log('Form submitted:', formData);
-//       handleNext();
-//     }
-//   };
-
-//   const handlePrevious = () => {
-//     setCurrentStep(1); // Go back to OverlayTwo
-//   };
-
-//   const handleChange = (e) => {
-//     setFormData({
-//       ...formData,
-//       [e.target.name]: e.target.value,
-//     });
-//   };
-
-//   const validate = () => {
-//     const newErrors = {};
-//     Object.keys(formData).forEach((key) => {
-//       if (!formData[key]) {
-//         newErrors[key] = 'This field is required';
-//       }
-//     });
-//     setErrors(newErrors);
-//     return Object.keys(newErrors).length === 0;
-//   };
-
-
-//     return (
-//       <>
-//       <div className='overlay'>
-//         <div className='flex justify-between items-center'>
-//           <h1 className="CC">Create Quotation</h1>
-//           <FaTimesCircle onClick={onClose} className="text-xl text-[#074E73]"/>
-//         </div>
-//         <div className="p-6">
-//           <ProgressBar steps={steps} currentStep={currentStep} />
-//         </div>
-  
-//         <ShippingTable/>
-//         <div className='three'>
-//         <button type="button" className="btn1" onClick={handlePrevious}>Previous</button>
-//         <button type="submit" className="submit" onClick={()=>setCurrentStep(3)}>Proceed</button>
-//         <button className='save'>Save</button>
-//         </div>
-//       </div>
-//       </>
-//     )
-//   }
-
-//   export default OverlayThree
-
-
-import React, { useState,useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import ProgressBar from './ProgressBar';
 import { FaTimesCircle } from 'react-icons/fa';
 import ShippingTable from './ShippingTable';
+import { useRouter } from "next/navigation";
 
-function OverlayThree({ onClose, formData, setFormData, setCurrentStep, shippingRates }) {
+function OverlayThree({ onClose, formData, setFormData, setCurrentStep, shippingRates, onProceed }) {
   const steps = ['Address', 'Package', 'Carrier'];
   const [selectedRate, setSelectedRate] = useState(null);
+  const router = useRouter();
 
-  const handlePrevious = () => {
-    setCurrentStep(1); // Navigate back to OverlayTwo
-  };
+  const handlePrevious = () => setCurrentStep(1); // Navigate back to OverlayTwo
 
   const handleRateSelect = (rate) => {
-    setSelectedRate(rate); // Update the selected rate
+    console.log("Selected Rate Before Setting:", rate);
+    if (!rate) return;
+
+    const updatedRate = {
+      ...rate,
+      carrier_name: rate.carrier_name || "UPS",
+      carrier_plan: rate.carrier_plan || rate.service_name || "N/A",
+      service_code: rate.service_code || "N/A",
+      total_charges: parseFloat(rate.total_charges || 0),
+    };
+    setSelectedRate(updatedRate);
+    setFormData((prev) => {
+      const updatedFormData = {
+        ...prev,
+        selectedRate: updatedRate,
+        package_details: prev.package_details.map((item) => ({
+          ...item,
+          carrier_name: updatedRate.carrier_name,
+          carrier_plan: updatedRate.carrier_plan,
+          service_code: updatedRate.service_code,
+        })),
+      };
+      localStorage.setItem("formData", JSON.stringify(updatedFormData));
+      return updatedFormData;
+    });
   };
 
-  const handleSave = () => {
+  useEffect(() => {
+    console.log("Updated Selected Rate:", selectedRate);
+  }, [selectedRate]);
+
+  const formatBookingData = (type) => {
     if (!selectedRate) {
-      alert("Please select a shipping rate before saving.");
-      return;
+      alert("Please select a shipping rate before proceeding.");
+      return null;
     }
-    alert("Quotation saved successfully!");
+
+    const packageDetails = formData.package_details?.[0] || {}; // Use formData here
+    const formattedEstDeliveryDate = selectedRate.estimated_arrival_date
+      ? new Date(selectedRate.estimated_arrival_date).toISOString().split("T")[0]
+      : null;
+
+    return {
+      customer_id: formData.customer_id || 0, // Use formData here
+      quotation_id: formData.quotation_id || "N/A", // Use formData here
+      type, // "booking" or "quotation"
+      status: type === "quotation" ? "Saved" : "Pending", // Corrected the status field to lowercase
+      from_pincode: formData.ship_from_address?.PostalCode || formData.from_pincode || "N/A",
+    to_pincode: formData.ship_to_address?.PostalCode || formData.to_pincode || "N/A",
+      ship_to_address: {
+        ...formData.ship_to_address,
+        to_pincode: formData.ship_to_address?.PostalCode || "N/A", // Convert PostalCode to to_pincode
+        PostalCode: undefined,
+      },// Use formData here
+      ship_from_address: {
+        ...formData.ship_from_address,
+        from_pincode: formData.ship_from_address?.PostalCode || "N/A", // Convert PostalCode to from_pincode
+        PostalCode: undefined,
+      },// Use formData here
+      package_count: parseInt(formData.package_count || 1, 10), // Use formData here
+      pickup_date: formData.pickup_date || new Date().toISOString().split("T")[0], // Use formData here
+      package_details: [
+        {
+            ...packageDetails,
+            carrier_name: selectedRate.carrier_name,
+            carrier_plan: selectedRate.carrier_plan,
+            service_code: selectedRate.service_code,
+            est_cost: parseFloat(selectedRate.total_charges || 0),
+            total_cost: parseFloat(selectedRate.total_charges || 0),
+            est_delivery_date: formattedEstDeliveryDate,
+            booking_date: new Date().toISOString().split("T")[0],
+            booking_by: "user",
+          }
+      ],
+      booking_items: formData.package_details.map((item) => ({ // Use formData here
+        weight: parseFloat(item.weight || 0),
+        length: parseFloat(item.length || 0),
+        width: parseFloat(item.width || 0),
+        height: parseFloat(item.height || 0),
+        package_type: item.package_type || "Unknown",
+        package_cost: parseFloat(selectedRate.total_charges || 0),
+      })),
+    };
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (!selectedRate) {
       alert("Please select a shipping rate before proceeding.");
       return;
     }
-  
-    // Construct the `booking_items` array from formData
-    const bookingItems = [
-      {
-        weight: formData.package_details.weight || 0,
-        length: formData.package_details.length || 0,
-        width: formData.package_details.width || 0,
-        height: formData.package_details.height || 0,
-        package_type: formData.package_details.package_type || "Unknown",
-        package_cost: formData.package_details.package_cost || 0,
-      },
-    ];
-  
-    // Build the complete request body as per FastAPI's schema
-    const bookingData = {
-      customer_id: 0, // Replace with the actual customer ID if available
-      ship_to_address: {
-        to_name: formData.ship_to_address.Name,
-        to_mobile: formData.ship_to_address.Mobile,
-        to_email: formData.ship_to_address.Email,
-        to_address: formData.ship_to_address.Address,
-        to_city: formData.ship_to_address.City,
-        to_state: formData.ship_to_address.StateProvinceCode,
-        to_pincode: formData.ship_to_address.PostalCode,
-        to_country: formData.ship_to_address.CountryCode,
-      },
-      ship_from_address: {
-        from_name: formData.ship_from_address.Name,
-        from_mobile: formData.ship_from_address.Mobile,
-        from_email: formData.ship_from_address.Email,
-        from_address: formData.ship_from_address.Address,
-        from_city: formData.ship_from_address.City,
-        from_state: formData.ship_from_address.StateProvinceCode,
-        from_pincode: formData.ship_from_address.PostalCode,
-        from_country: formData.ship_from_address.CountryCode,
-      },
-      package_details: {
-        carrier_plan: selectedRate.carrier_plan,
-        carrier_name: selectedRate.carrier_name,
-        service_code: selectedRate.service_code,
-        pickup_date: selectedRate.pickup_date || new Date().toISOString().split("T")[0], // Fallback to today's date
-        package_count: formData.package_details.package_count || 1,
-        est_cost: selectedRate.est_cost || 0,
-        total_cost: selectedRate.total_cost || 0,
-        est_delivery_date: selectedRate.est_delivery_date || "Unknown",
-        booking_date: new Date().toISOString().split("T")[0], // Today's date
-        booking_by: "user", // Replace with authenticated user info if applicable
-      },
-      booking_items: bookingItems, // Add constructed `booking_items` array here
-    };
-  
+    onProceed();
+    router.push("/bookings/reviewpage");
+  };
+
+  const handleSave = async () => {
+    if (!formData || !formData.quotation_id) {
+      alert("No quotation found to update. Please try again.");
+      return;
+    }
+
+    const quotationData = formatBookingData("quotation");
+    console.log("Final Quotation Data before Saving:", quotationData);
+
+    if (!quotationData) return;
+
     try {
-      const response = await fetch("http://127.0.0.1:8000/thisaiapi/bookings/create_booking", {
-        method: "POST",
+      const updateUrl = `http://127.0.0.1:8000/thisaiapi/bookings/quotations/${formData.quotation_id}/updatequotation`; 
+      // Use formData here
+
+      const response = await fetch(updateUrl, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bookingData),
+        body: JSON.stringify(quotationData),
       });
-  
+
       if (response.ok) {
-        alert("Booking created successfully!");
-        onClose(); // Close overlay on success
+        alert("Quotation updated successfully!");
+
+        // Redirect to Booking Table after successful quotation update
+        router.push(`/quotations?selectedEntity=${encodeURIComponent(JSON.stringify(quotationData))}&userType=quotation`);
+
+
+
+        onClose();
       } else {
         const errorResponse = await response.json();
-        alert("Error creating booking: " + (errorResponse.detail || "Unknown error"));
+        console.error("Error Response from Backend:", errorResponse);
+        alert("Error updating quotation: " + JSON.stringify(errorResponse));
       }
     } catch (error) {
       console.error("Network error:", error);
-      alert("An error occurred while submitting the booking. Please try again.");
+      alert("An error occurred while updating the quotation. Please try again.");
     }
+
+    onProceed();
   };
-  
-  useEffect(() => {
-    console.log("Shipping Rates:", shippingRates);
-  }, [shippingRates]);
-  
+
+  const handleProceed = () => {
+    if (!formData || !formData.package_details || !formData.ship_to_address) {
+      alert("Missing required booking details.");
+      return;
+    }
+
+    const updatedFormData = {
+      ...formData,
+      selectedRate,
+    };
+    setFormData(updatedFormData)
+    localStorage.setItem("formData", JSON.stringify(updatedFormData));
+
+    console.log("Proceeding with FormData:", updatedFormData);
+
+    router.push("/bookings/reviewpage");
+  };
 
   return (
     <div className="overlay w-[1004px]">
@@ -189,7 +179,6 @@ function OverlayThree({ onClose, formData, setFormData, setCurrentStep, shipping
           <ProgressBar steps={steps} currentStep={2} />
         </div>
 
-        {/* Display shipping rates */}
         {shippingRates?.length > 0 ? (
           <ShippingTable
             shippingRates={shippingRates}
@@ -200,16 +189,15 @@ function OverlayThree({ onClose, formData, setFormData, setCurrentStep, shipping
           <p>No shipping rates available. Please try again later.</p>
         )}
 
-        {/* Action buttons */}
         <div className="three">
           <button type="button" className="btn1" onClick={handlePrevious}>
             Previous
           </button>
-          <button type="submit" className="submit" onClick={handleSubmit}>
-            Proceed
-          </button>
           <button type="button" className="save" onClick={handleSave}>
-            Save
+            Ship Later
+          </button>
+          <button type="button" className="btn" onClick={handleProceed}>
+            Ship Now
           </button>
         </div>
       </div>
@@ -218,3 +206,4 @@ function OverlayThree({ onClose, formData, setFormData, setCurrentStep, shipping
 }
 
 export default OverlayThree;
+

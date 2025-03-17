@@ -49,7 +49,7 @@ const DoughnutChart = () => {
       <h1 className="text-gray-900 font-semibold font-Condensed mb-4">Booking Graph</h1>
       </div>
       
-      <div className="flex relative w-[80%] h-80">
+      <div className="flex  w-[80%] h-80">
         <Doughnut className="" data={data} options={options} />
       </div>
       <div className="flex gap-10 mt-4 inline-flex">
