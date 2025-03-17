@@ -4,9 +4,14 @@ from app.models.customers import Customer
 from app.models.bookings import Bookings
 from app.utils.ups_utils import ups_create_shipment, get_ups_shipping_rates, ups_get_access_token
 import logging
-from app.crud.bookings import create_booking_and_address_crud, get_all_bookings_crud,cancel_booking_status,save_address_if_not_exists,update_quotation,save_quotation, update_quotation_status
+from app.crud.bookings import create_booking_and_address_crud, get_all_bookings_crud,cancel_booking_status,save_address_if_not_exists,update_quotation,save_quotation, update_quotation_status_in_crud
 from app.crud.addressbook import get_all_addresses
 from bson import ObjectId
+from datetime import datetime
+import json
+from typing import Optional
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +25,13 @@ async def fetch_shipping_rates(data: dict):
         if not access_token:
             return {"error": "Failed to retrieve UPS access token."}
 
-        package_data = data.get("package_details", {})
+        package_data = data.get("package_details", [{}])[0]
+
+        pickup_date = data.get("pickup_date", "")  
+        pickup_time = data.get("pickup_time", "") 
+        print(f"Sending to UPS API: pickup_date={pickup_date}, pickup_time={pickup_time}")
+
+        package_count = int(data.get("package_count", 0))  
 
         if not package_data:
             return {"error": "Missing 'package_details' in request"}
@@ -40,11 +51,6 @@ async def fetch_shipping_rates(data: dict):
             # package_data["DocumentsOnlyIndicator"] = "Non-Document"
             package_data["PackagingType"] = {"Code": "02"}  # Other Packaging
 
-        print(f"package details from service: {(package_data)}")  # Debugging print
-        print(f"PackagingType from service: {package_data.get('PackagingType')}")
-        print(f"PackageBillType from service: {package_data.get('packagebilltype')}")
-        print(f"DocumentsOnlyIndicator from service: {package_data.get('DocumentsOnlyIndicator')}")
-
         # Extract user details
         user_email = data.get("UserEmail", "")
 
@@ -59,16 +65,10 @@ async def fetch_shipping_rates(data: dict):
         }
         ship_to_address = {
             "name": data.get("ship_to_address", {}).get("Name", ""),
-<<<<<<< HEAD
             # "address_line_1": data.get("ship_to_address", {}).get("AddressLine", ""),
             # "address_line_2":data.get("ship_to_address", {}).get("AddressLine", ""),
             # "address_line_3":data.get("ship_to_address", {}).get("AddressLine", ""),
             "Address": data.get("ship_to_address", {}).get("Address", ""),
-=======
-            "address_line_1": data.get("ship_to_address", {}).get("AddressLine", ""),
-            "address_line_2":data.get("ship_to_address", {}).get("AddressLine", ""),
-            "address_line_3":data.get("ship_to_address", {}).get("AddressLine", ""),
->>>>>>> origin/main
             "Mobile": data.get("ship_to_address", {}).get("Mobile", ""),
             "Email": data.get("ship_to_address",{}).get("Email",""),
             "city": data.get("ship_to_address", {}).get("City", ""),
@@ -78,16 +78,10 @@ async def fetch_shipping_rates(data: dict):
         }
         ship_from_address = {
             "name": data.get("ship_from_address", {}).get("Name", ""),
-<<<<<<< HEAD
             # "address_line_1": data.get("ship_from_address", {}).get("AddressLine", ""),
             # "address_line_2":data.get("ship_from_address", {}).get("AddressLine", ""),
             # "address_line_3":data.get("ship_from_address", {}).get("AddressLine", ""),
             "Address": data.get("ship_from_address", {}).get("Address", ""),
-=======
-            "address_line_1": data.get("ship_from_address", {}).get("AddressLine", ""),
-            "address_line_2":data.get("ship_from_address", {}).get("AddressLine", ""),
-            "address_line_3":data.get("ship_from_address", {}).get("AddressLine", ""),
->>>>>>> origin/main
             "Mobile": data.get("ship_from_address", {}).get("Mobile", ""),
             "Email": data.get("ship_from_address",{}).get("Email",""),
             "city": data.get("ship_from_address", {}).get("City", ""),
@@ -102,9 +96,9 @@ async def fetch_shipping_rates(data: dict):
             },
             "DeliveryTimeInformation": {
                 "PackageBillType": package_data.get("packagebilltype", ""),
-                "Pickup": {"Date": package_data.get("pickup_date", "")}
+                "Pickup": {"Date": pickup_date, "Time": pickup_time}
             },
-            "NumOfPieces": package_data.get("NumOfPieces", 1),
+            "NumOfPieces": package_count,
             "DocumentsOnlyIndicator": package_data.get("DocumentsOnlyIndicator", ""),
             "Dimensions": {
                 "UnitOfMeasurement": {"Code": "IN", "Description": "Inches"},
@@ -114,12 +108,19 @@ async def fetch_shipping_rates(data: dict):
             },
             "PackageWeight": {
                 "UnitOfMeasurement": {"Code": "LBS", "Description": "Pounds"},
-                "Weight": package_data.get("weight", "")
+                "Weight": float(package_data.get("weight", 0)) 
+
             },
         }
+        print(f"Sending to UPS API: pickup_date={pickup_date}, pickup_time={pickup_time}")
+
+        print(f"Pickup date from service: {pickup_date}")
+        print(f"Package count from service: {package_count}")
+        print(f"Package Weight from service: {package_details.get('PackageWeight', {}).get('Weight')}")
+
         # Prepare the quotation data directly
         quotation_data = {
-            # "quotation_id": ObjectId(),
+            "quotation_id": ObjectId(),
             "address":{
             "ship_to": ship_to_address,
             "ship_from": ship_from_address,
@@ -127,24 +128,17 @@ async def fetch_shipping_rates(data: dict):
             
             "package_details": package_details,
             "status": "unsaved",
-<<<<<<< HEAD
             # "created_by": {
             #     "usertype": data.get("UserType", "") if data.get("UserType") else None,
             #     "userid": data.get("UserId","") if data.get("UserId") else None,
             # }
-=======
-            "created_by": {
-                "usertype": data.get("UserType", "") if data.get("UserType") else None,
-                "userid": data.get("UserId","") if data.get("UserId") else None,
-            }
->>>>>>> origin/main
         }
-        print(f"package details: {package_details}")
+        print(f"package details from service: {package_details}")
 
         # Save the initial quotation to DB
         quotation_result = await save_quotation(quotation_data)
-        print(f"quotation id from service {(quotation_result.get("quotation_id"))}")
         quotation_id = quotation_result.get("quotation_id")
+        print(f"Quotation saved with ID: {quotation_id}")
 
         if not quotation_result.get("success"):
             return {"error": "Failed to store quotation in database."}
@@ -155,7 +149,10 @@ async def fetch_shipping_rates(data: dict):
             shipper_address,
             ship_to_address, 
             ship_from_address,
-            package_details
+            package_details,
+            pickup_date,
+            pickup_time,
+            package_count
         )
 
         if not shipping_rates_response:
@@ -180,10 +177,13 @@ async def fetch_shipping_rates(data: dict):
         if not update_result.get("success"):
             return {"error": "Failed to update quotation with shipping rates."}
 
-        return {"quotation_id": quotation_id, "shipping_rates": processed_shipping_rates}
+        return {"success": True,
+                "quotation_id": quotation_result.get("quotation_id"),
+                  "shipping_rates": processed_shipping_rates}
 
     except Exception as e:
         return {"error": str(e)}
+    
     
 
 # Business logics for update the quotation status in quotation collection(MongoDb)
@@ -194,7 +194,7 @@ async def update_quotation_status_service(quotation_id: str):
     """
     try:
         # Call the database function
-        update_result = await update_quotation_status(quotation_id)
+        update_result = await update_quotation_status_in_crud(quotation_id)
 
         if not update_result.get("success"):
             return {"error": update_result.get("error")}
@@ -234,6 +234,7 @@ def create_booking_and_shipment_service(db: Session, booking_data: dict) -> dict
         save_address_if_not_exists(db, customer_id, booking_data, is_from=True)
         save_address_if_not_exists(db, customer_id, booking_data, is_from=False)
 
+
         # Prepare response data for the booking creation
         booking_response_data = {
             "customer_id": new_booking.customer_id,
@@ -259,13 +260,13 @@ def create_booking_and_shipment_service(db: Session, booking_data: dict) -> dict
             "est_cost": new_booking.est_cost,
             "est_delivery_date": new_booking.est_delivery_date,
             "pickup_date": new_booking.pickup_date,
+            "pickup_time": new_booking.pickup_time,
             "total_cost": new_booking.total_cost,
             "booking_date": new_booking.booking_date,
-<<<<<<< HEAD
             "booking_by":new_booking.booking_by,
-=======
->>>>>>> origin/main
             "package_count": new_booking.package_count,
+            "booking_status": new_booking.booking_status,
+            "tracking_number": new_booking.tracking_number,
             "booking_items": [
                 {
                     "length": item.item_length,
@@ -277,8 +278,12 @@ def create_booking_and_shipment_service(db: Session, booking_data: dict) -> dict
                 } for item in new_booking_items
             ] if new_booking_items else []
         }
+        logger.info(f"Pickup Date: {booking_data.get('booking_status')}")
+        logger.info(f"Pickup Date: {booking_data.get('tracking_number')}")
 
         logger.info(f"Booking response data: {booking_response_data}")
+        logger.info(f"Pickup Date: {booking_data.get('pickup_date')}")
+        logger.info(f"Pickup Time: {booking_data.get('pickup_time')}")
 
         # UPS shipment creation (this is the only step where shipment_data is used)
         # Load UPS credentials
@@ -310,7 +315,7 @@ def create_booking_and_shipment_service(db: Session, booking_data: dict) -> dict
         if not access_token:
             raise HTTPException(status_code=500, detail="Failed to retrieve UPS access token.")
         
-        package_data = booking_data.get("package_details")
+        package_data = booking_data.get("package_details",[])
        
         # Validate ship_from_address
         ship_from_address ={
@@ -322,11 +327,12 @@ def create_booking_and_shipment_service(db: Session, booking_data: dict) -> dict
             "CountryCode":  booking_data.get("ship_from_address",{}).get("from_country")
 
         }
-        print(f"ship_from_address from service: {ship_from_address}")
+        logger.info(f"ship_from_address: {ship_from_address}")
 
         # Validate ship_to_address
         ship_to_address ={
             "Name": booking_data.get("ship_to_address",{}).get("to_name"),
+            "Phone": {"Number": booking_data.get("ship_to_address", {}).get("to_mobile", "")},
             "AddressLine": [booking_data.get("ship_to_address",{}).get("to_address")],
             "City":  booking_data.get("ship_to_address",{}).get("to_city"),
             "StateProvinceCode":  booking_data.get("ship_to_address",{}).get("to_state"),
@@ -334,76 +340,124 @@ def create_booking_and_shipment_service(db: Session, booking_data: dict) -> dict
             "CountryCode":  booking_data.get("ship_to_address",{}).get("to_country")
 
         }
-        print(f"ship_to_address from service: {ship_to_address}")
+        logger.info(f"ship_to_address from service: {ship_to_address}")
         
         booking_items = booking_data.get("booking_items",[])
 
         service_code = package_data.get("service_code",{})
         print(f"service_code from service: {service_code}")
-        pickup_date =  package_data.get("pickup_date",{})
-        formatted_pickupdate = pickup_date.strftime("%Y-%m-%d")
-        
+       
+        pickup_date = booking_data.get("pickup_date", "")
+        logger.info(f"pickup_date from service: {pickup_date}")
+        formatted_pickupdate = (
+            datetime.strptime(pickup_date, "%Y%m%d").strftime("%Y-%m-%d")
+            if isinstance(pickup_date, str) and pickup_date.isdigit() 
+            else pickup_date
+        )
+        logger.info(f"Formatted Pickup Date: {formatted_pickupdate}")
+
+        pickup_time = booking_data.get("pickup_time", "")
+        logger.info(f"pickup_time from service: {pickup_time}")
+
         for item in booking_items:
-          package_type = item.get("package_type")  # Access package_type from each dictionary in the list
+          package_type = item.get("package_type")
 
           if not package_type:
             return {"error": "Missing 'package_type' in booking_items"}
 
-          # Assign package attributes based on package_type_code
-          if package_type == "Document":  # Document package type
-           item["packagebilltype"] = "02"
-           item["DocumentsOnlyIndicator"] = "Document"
-           item["PackagingType"] = {"Code": "01"}  # UPS Letter
-          else:  # Non-Document package type
+        # Assign package attributes based on package_type_code
+        if package_type == "Document":  # Document package type
+            item["packagebilltype"] = "02"
+            item["DocumentsOnlyIndicator"] = "Document"
+            item["PackagingType"] = {"Code": "01"}  # UPS Letter
+        else:  # Non-Document package type
             item["packagebilltype"] = "03"
-            item["PackagingType"] = {"Code": "02"}  # Other Packaging
+            item["DocumentsOnlyIndicator"] = "Non-Document"
+            item["PackagingType"] = {"Code": "02"}  # Other Packaging
 
         # Construct package details
-          package_details = {
+        package_details = {
             "Packaging": {
                 "Code": item.get("PackagingType", {}).get("Code", ""),
                 "Description": "Nails"
             },
             "DeliveryTimeInformation": {
                 "PackageBillType": item.get("packagebilltype", ""),
-                "Pickup": {"Date": formatted_pickupdate}
+                "Pickup": {"Date": formatted_pickupdate, "Time": pickup_time}
             },
-            "NumOfPieces": package_data.get("NumOfPieces", 1),
+            "NumOfPieces": package_data.get("package_count"),
             "DocumentsOnlyIndicator": item.get("DocumentsOnlyIndicator", ""),
-            "Dimensions": {
+        }
+        logger.info(f"package details from service in create booking shipment service: {package_details}")
+     
+
+        # Add dimensions only if it's a Non-Document package
+        if item["DocumentsOnlyIndicator"] == "Non-Document":
+            package_details["Dimensions"] = {
                 "UnitOfMeasurement": {"Code": "IN", "Description": "Inches"},
-                "Length": str(item.get("weight", "")),
-                "Width": str(item.get("weight", "")),
-                "Height": str(item.get("weight", ""))
-            },
-            "PackageWeight": {
+                "Length": str(item.get("length", "")),
+                "Width": str(item.get("width", "")),
+                "Height": str(item.get("height", ""))
+            }
+            package_details["PackageWeight"] = {
                 "UnitOfMeasurement": {"Code": "LBS", "Description": "Pounds"},
                 "Weight": str(item.get("weight", ""))
-            },
-        }
-          print(f"package details from service: {package_details}")
-          print(f"package details:{type(item.get("weight"))}")
+            }
+        print(f"package details from service: {package_details}")
+        print(f"package details:{type(item.get("weight"))}")
+
+        logger.info(f"Final package_details before UPS request: {json.dumps(package_details, indent=2)}")
         
         # Call UPS API to create shipment
         shipment_response = ups_create_shipment(
-            access_token,
-            shipper_address,
-            ship_from_address,
-            ship_to_address,
-            package_details,
-            service_code,
-            payment_info,
-            
-        )
+    access_token,
+    shipper_address,
+    ship_from_address,
+    ship_to_address,
+    package_details,
+    service_code,  
+    payment_info,  
+    pickup_date,
+    pickup_time,
+)
+         # Extract Tracking Number
+        tracking_number = shipment_response.get("tracking_number", "N/A")
+        booking_status = "Booked" if tracking_number != "N/A" else "Pending"
+        base_service_charge = shipment_response.get("base_service_charge", "0.00")
+        label_filename = shipment_response.get("label_filename", "")
+        shipment_id = shipment_response.get("shipment_id", "N/A")
+        total_charges = shipment_response.get("total_charges", "0.00")
+        
+        # **UPDATE BOOKING STATUS AND TRACKING NUMBER**
+        new_booking.tracking_number = tracking_number
+        new_booking.booking_status = booking_status
+        db.commit()
+        db.refresh(new_booking)
 
-        # Return the final response including booking and shipment info
-        return shipment_response
+        logger.info(f"Booking {new_booking.booking_id} updated with Tracking Number: {tracking_number} and Status: {booking_status}")
+        logger.info(f"shipment_response from service: {shipment_response}")
+        logger.info(f"Booking Data at service layer: {booking_data}")
+        logger.info(f"Extracted Pickup Date: {pickup_date}")
+        logger.info(f"Extracted Pickup Time: {pickup_time}")
+
+        if not shipment_response or "tracking_number" not in shipment_response:
+            logger.error(f"UPS API error: {shipment_response}")
+            raise HTTPException(status_code=500, detail="Invalid UPS API response.")
+
+        return {
+            "booking_status": new_booking.booking_status,
+            "tracking_number": new_booking.tracking_number,
+            "base_service_charge": base_service_charge,
+            "label_filename": label_filename,
+            "shipment_id": shipment_id,
+            "total_charges": total_charges
+        }
 
     except Exception as e:
         logger.error(f"Error in booking and shipment service: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error creating booking and shipment: {str(e)}")
 
-    
+  
 # Business logics for cancel booking service (Mysql DB)
 def cancel_booking_service(db: Session, booking_id: int):
     """Business logic to cancel a booking by setting active_flag=0 and updating booking_status to 'Cancelled'."""
@@ -425,15 +479,14 @@ def cancel_booking_service(db: Session, booking_id: int):
   
        
 # Business logics for get all bookings (Mysql DB)
-def get_all_bookings_service(db: Session):
+def get_all_bookings_service(db: Session, booking_id: Optional[int] = None):
     """Fetch all bookings from the database."""
     try:
-        bookings = get_all_bookings_crud(db)
-
-        return bookings  # Always return a valid list
+        bookings = get_all_bookings_crud(db, booking_id)
+        return bookings  
 
     except Exception as e:
-        raise Exception(f"Service error while fetching all bookings: {e}")
+        raise HTTPException(status_code=500, detail=f"Service error while fetching bookings: {e}")
     
 
 # Business logics for get all addressbook (Mysql DB)

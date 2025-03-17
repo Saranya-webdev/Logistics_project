@@ -19,15 +19,16 @@ async def create_address_book_api(address: AddressBookCreate, db: Session = Depe
     except IntegrityError as e:
         if "UNIQUE constraint failed" in str(e.orig):
             raise HTTPException(status_code=400, detail="Address with this identifier already exists")
-        raise HTTPException(status_code=500, detail="Database error occurred")
+        raise HTTPException(status_code=500, detail="Database error occurred") 
 
-# GET address by ID
-@router.get("/{address_id}/viewaddressbook/", response_model=AddressBookResponse, status_code=status.HTTP_200_OK)
-async def get_address_book_api(address_id: int, db: Session = Depends(get_db)):
-    db_address = get_address_book(db, address_id)
-    if db_address is None:
-        raise HTTPException(status_code=404, detail="Address not found")
-    return db_address    
+# GET address by Customer ID
+@router.get("/{customer_id}/viewaddressbook/", response_model=List[AddressBookResponse], status_code=status.HTTP_200_OK)
+async def get_addresses_by_customer(customer_id: int, db: Session = Depends(get_db)):
+    db_addresses = db.query(AddressBook).filter(AddressBook.customer_id == customer_id).all()
+    if not db_addresses:
+        raise HTTPException(status_code=404, detail="No addresses found for this customer")
+    return db_addresses
+
 
 # GET all address books
 @router.get("/addressbooklist", response_model=AddressBooksListResponse)

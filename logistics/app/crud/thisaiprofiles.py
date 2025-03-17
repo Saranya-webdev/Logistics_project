@@ -1,14 +1,10 @@
 from app.models.thisaiprofiles import Associate, AssociatesCredential
-<<<<<<< HEAD
 from sqlalchemy.orm import Session,joinedload
 from fastapi import HTTPException, status
 import logging
 from app.models.bookings import Bookings
-=======
-from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
-import logging
->>>>>>> origin/main
+from app.utils.utils import log_and_raise_exception
+
 
 
 
@@ -40,7 +36,7 @@ def create_associates_crud(db: Session, associates_data: dict) -> Associate:
     except Exception as e:
         logger.error(f"Error in associates CRUD operation: {str(e)}")
         db.rollback()
-        raise HTTPException(status_code=500, detail="Error creating associate in database")
+        raise HTTPException(status_code=500, detail="Error creating associate in create_associates_crud")
     
 
 # CRUD operations for create associate'S credentail (Mysql db)
@@ -59,7 +55,7 @@ def create_associates_credential(db: Session, associates_id: int, email_id: str,
         return associates_credential
     except Exception as e:
         db.rollback()
-        raise Exception(f"Database error: {e}")
+        raise Exception(f"Database error in create_associates_credential: {e}")
     
 
 # CRUD operations for create associate'S credentail (Mysql db)
@@ -74,7 +70,7 @@ def update_associates_password_crud(db: Session, credential: AssociatesCredentia
         return credential
     except Exception as e:
         db.rollback()  # Rollback in case of failure
-        raise Exception(f"Database error while updating password: {e}")
+        raise Exception(f"Database error while updating password in update_associates_password_crud: {e}")
 
 
 
@@ -100,7 +96,7 @@ def update_associates_crud(db: Session, associates_email: str, associates_data: 
 
     except Exception as e:
         db.rollback()
-        raise Exception(f"Error updating associate in CRUD: {str(e)}")
+        raise Exception(f"Error updating associate in update_associates_crud: {str(e)}")
 
 
 # CRUD operations for get associate profile
@@ -118,7 +114,7 @@ def get_associates_profile_crud(db: Session, associates_email: str) -> dict:
         # Log and raise a generic exception for other errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An error occurred while retrieving associates profile: {str(e)}"
+            detail=f"An error occurred while retrieving associates profile in get_associates_profile_crud: {str(e)}"
         )
 
 
@@ -132,23 +128,31 @@ def get_associates_profiles_list_crud(db: Session) -> list:
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching associates profiles: {str(e)}"
+            detail=f"Error fetching associates profiles in get_associates_profiles_list_crud: {str(e)}"
         )
 
 
-<<<<<<< HEAD
 def get_bookings_by_associate_crud(db: Session, associates_email: str):
     """
     Fetch bookings from the database where booking is placed by an associate.
     """
-    return db.query(Bookings).filter(
-        Bookings.booking_by == associates_email,
-    ).options(
-           joinedload(Bookings.booking_items)
-       ).all()
+    try:
+        bookings = (
+            db.query(Bookings)
+            .filter(Bookings.booking_by == associates_email)
+            .options(joinedload(Bookings.booking_items))
+            .all()
+        )
 
-=======
->>>>>>> origin/main
+        if not bookings:
+            log_and_raise_exception(f"No bookings found for associate with email {associates_email}", 404)
+
+        return bookings
+
+    except Exception as e:
+        log_and_raise_exception(f"Error fetching bookings in get_bookings_by_associate_crud: {str(e)}", 500)
+
+
 # CRUD operations for suspend/active customer
 def suspend_or_activate_associates_crud(db: Session, associates_email: str, active_flag: int, remarks: str):
     """
@@ -163,25 +167,27 @@ def suspend_or_activate_associates_crud(db: Session, associates_email: str, acti
     Returns:
         Associate: The updated associate object.
     """
-    associate = db.query(Associate).filter(Associate.associates_email == associates_email).first()
+    try:
+        associate = db.query(Associate).filter(Associate.associates_email == associates_email).first()
 
-    if not associate:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No associate found with the provided email."
-        )
+        if not associate:
+            log_and_raise_exception(f"No associate found with email {associates_email}", 404)
 
-    associate.active_flag = active_flag
-    associate.remarks = remarks
-    db.commit()
-    db.refresh(associate)
+        associate.active_flag = active_flag
+        associate.remarks = remarks
+        db.commit()
+        db.refresh(associate)
 
-    return associate
+        return associate
+
+    except Exception as e:
+        db.rollback()  # Ensure rollback on failure
+        log_and_raise_exception(f"Error updating associate status in suspend_or_activate_associates_crud: {str(e)}", 500)
 
 
 # CRUD operations for verify associate
 def verify_associate_crud(
-    db: Session, associates_email: str, verification_status: str, active_flag: int
+    db: Session, associates_email: str, associates_verification_status: str, active_flag: int
 ): 
     """
     Verify the associate by email and update their verification status and active flag.
@@ -193,11 +199,11 @@ def verify_associate_crud(
         if not existing_associate:
             raise HTTPException(
                 status_code=404,
-                detail="Associate with the provided email not found."
+                detail="Associate with the provided email not found in verify_associate_crud."
             )
 
         # Update the associate's verification status and active flag
-        existing_associate.verification_status = verification_status
+        existing_associate.associates_verification_status = associates_verification_status
         existing_associate.active_flag = active_flag
 
         # Commit the changes to the database
@@ -207,6 +213,6 @@ def verify_associate_crud(
         return existing_associate
     except Exception as e:
         db.rollback()  # Roll back changes if there's an error
-        raise Exception(f"Database error while updating associate verification: {str(e)}")
+        raise Exception(f"Database error while updating associate verification in verify_associate_crud: {str(e)}")
 
         

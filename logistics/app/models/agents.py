@@ -22,17 +22,17 @@ class Agent(Base):
     agent_pincode = Column(String(255), nullable=True)
     agent_geolocation = Column(String(255), nullable=False)
     agent_category = Column(
-        Enum(Category, name="customer_category_enum"), nullable=False
-    )
+        Enum(Category, name="customer_category_enum"), nullable=False)
     agent_businessname = Column(String(255), nullable=False)
     tax_id = Column(String(255), nullable=False)
     remarks = Column(String(255), nullable=True)
-    verification_status = Column(Enum(VerificationStatus), nullable=False, default=VerificationStatus.none)
+    verification_status = Column(
+    Enum(VerificationStatus, native_enum=False),
+    nullable=False,
+    default=VerificationStatus.NoneValue.value)
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     active_flag = Column(Integer, default=1)
-    # created_by = Column(Integer, ForeignKey("user.user_id"))
-    # updated_by = Column(Integer, ForeignKey("user.user_id"))
 
     agent_credentials = relationship("AgentCredential", back_populates="agent", cascade="all, delete-orphan")    
 
@@ -50,8 +50,6 @@ class AgentCredential(Base):
     agent_id = Column(Integer, ForeignKey("agent.agent_id"), nullable=False)
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    # created_by = Column(Integer, ForeignKey("user.user_id"))
-    # updated_by = Column(Integer, ForeignKey("user.user_id"))
 
     agent = relationship("Agent", back_populates="agent_credentials")
 

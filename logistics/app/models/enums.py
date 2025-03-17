@@ -1,5 +1,7 @@
 # app/models/enums.py
+from enum import Enum as PyEnum
 from enum import Enum
+
 
 class Type(Enum):
     individual = "individual"
@@ -20,12 +22,15 @@ class PackageType(Enum):
     NonDocument = 'Non-Document'
 
 
-class BookingStatus(Enum):
-    pending = 'pending'
-    confirmed = 'confirmed'
-    shipped = 'shipped'
-    delivered = 'delivered'
-    cancelled = 'cancelled'
+class BookingStatus(str, Enum):
+    Pending = "Pending"
+    Booked = "Booked"
+    Confirmed = "Confirmed"
+    Cancelled = "Cancelled"
+
+class QuotationStatus(Enum):
+    saved = "saved"
+    unsaved = "unsaved"
 
 class PaymentStatus(Enum):
     picked = "Picked"
@@ -39,11 +44,15 @@ class RatingEnum(Enum):
     Four = "4"
     Five = "5"
 
-class VerificationStatus(Enum):
-    none = "none"
-    pending = "pending"
-    verified = "verified"
+class VerificationStatus(str, PyEnum):
+    NoneValue = "None"  
+    Pending = "Pending"
+    Verified = "Verified"
 
-class Role(Enum):
-    admin = "admin"
-    super_admin = "super_admin"
+
+
+class Role(str, Enum): 
+    Admin = "Admin"
+    Super_Admin = "Super_Admin"
+
+

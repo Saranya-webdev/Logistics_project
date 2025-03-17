@@ -24,34 +24,26 @@ class Customer(Base):
     customer_country = Column(String(255), nullable=False)
     customer_pincode = Column(String(255), nullable=True)
     customer_geolocation = Column(String(255), nullable=False)
-
     customer_type = Column(Enum(Type, name="customer_type_enum"), nullable=False)
     customer_category = Column(Enum(Category, name="customer_category_enum"), nullable=False)
-
-
     remarks = Column(String(255), nullable=True)
 
     # Changed to Enum for better clarity and consistency
-    verification_status = Column(Enum(VerificationStatus), nullable=False, default=VerificationStatus.none)
-
+    verification_status = Column(
+    Enum(VerificationStatus, native_enum=False),
+    nullable=False,
+    default=VerificationStatus.NoneValue.value)
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     active_flag = Column(Integer, default= 1)
    
-    # Relationship with bookings
+ 
     bookings = relationship('Bookings', back_populates='customer', foreign_keys=[Bookings.customer_id], cascade="all, delete-orphan")
-    # Relationship with address books
     address_books = relationship("AddressBook", back_populates="customer", cascade="all, delete-orphan")
-    # Relationship with quotations
     quotations = relationship("Quotations", back_populates="customer", foreign_keys=[Quotations.customer_id], cascade="all, delete-orphan")
-
-    # Added relationship to customer_business
     customer_business = relationship("CustomerBusiness", back_populates="customer", uselist=False, cascade="all, delete-orphan")
-    # Added relationship to customer_credential
     customer_credentials = relationship("CustomerCredential", back_populates="customer", uselist=False, cascade="all, delete-orphan")
-    # Added relationship to customer_margin
     customer_margins = relationship("CustomerMargin", back_populates="customer", uselist=False, cascade="all, delete-orphan")
-    # Added relationship to customer_payments
     customer_payments = relationship("CustomerPayments", back_populates="customer", cascade="all, delete-orphan")
 
     class Config:
@@ -72,7 +64,6 @@ class CustomerBusiness(Base):
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
 
     customer = relationship("Customer", back_populates="customer_business")
-
 
     class Config:
         orm_mode = True

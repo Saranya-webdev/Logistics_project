@@ -1,16 +1,12 @@
-<<<<<<< HEAD
 from sqlalchemy.orm import Session,joinedload
 from fastapi import HTTPException, status
 from app.models.agents import Agent, Category, AgentCredential
 from app.models.bookings import Bookings
-=======
-from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
-from app.models.agents import Agent, Category, AgentCredential
->>>>>>> origin/main
 from app.schemas.agents import AgentUpdateResponse
 from app.utils.utils import log_and_raise_exception, populate_dynamic_entries
 import logging
+from typing import Optional
+
 
 
 # Configure logger
@@ -37,7 +33,7 @@ def create_agent_crud(db: Session, agent_data: dict) -> Agent:
        return new_agent
     except Exception as e:
         db.rollback()
-        raise Exception(f"Database error: {e}")
+        raise Exception(f"Database error in create_agent_crud: {e}")
 
 
 def create_agent_credential(db: Session, agent_id: int, email_id: str, password: str):
@@ -55,7 +51,7 @@ def create_agent_credential(db: Session, agent_id: int, email_id: str, password:
         return agent_credential
     except Exception as e:
         db.rollback()
-        raise Exception(f"Database error: {e}")
+        raise Exception(f"Database error in create_agent_credential: {e}")
     
 
 def update_agent_password_crud(db: Session, credential: AgentCredential, hashed_password: str):
@@ -69,7 +65,7 @@ def update_agent_password_crud(db: Session, credential: AgentCredential, hashed_
         return credential
     except Exception as e:
         db.rollback()  # Rollback in case of failure
-        raise Exception(f"Database error while updating password: {e}")    
+        raise Exception(f"Database error while updating password in update_agent_password_crud: {e}")    
 
     
 # CRUD operations for get Agent profile
@@ -82,7 +78,7 @@ def get_agent_profile_crud(db: Session, agent_email: str):
         agent = db.query(Agent).filter(Agent.agent_email == agent_email).first()
         return agent
     except Exception as e:
-        raise Exception(f"Database error while retrieving agent: {str(e)}")
+        raise Exception(f"Database error while retrieving agent in get_agent_profile_crud: {str(e)}")
 
 
 # CRUD operations for get all Agents
@@ -94,35 +90,56 @@ def get_all_agents_crud(db: Session) -> list:
         agents = db.query(Agent).all()
         return agents
     except Exception as e:
-        raise Exception(f"Database error while retrieving all agents: {str(e)}")
-<<<<<<< HEAD
+        raise Exception(f"Database error while retrieving all agents in get_all_agents_crud: {str(e)}")
     
 
-def get_bookings_by_agent_crud(db: Session, agent_email: str):
+def get_bookings_by_agent_crud(db: Session, agent_email: str, booking_id: Optional[int] = None):
     """
     Fetch bookings from the database where booking is placed by an agent.
     """
-    return db.query(Bookings).filter(
-        Bookings.booking_by == agent_email,
-    ).options(
+    try:
+        query = db.query(Bookings).filter(Bookings.booking_by == agent_email)
+
+        if booking_id:
+            query = query.filter(Bookings.booking_id == booking_id)
+
+        query =  query.options(
            joinedload(Bookings.booking_items)
-       ).all()
-=======
->>>>>>> origin/main
+       )
+        bookings = query.all()  # Ensure `all()` is called on a valid query object
+
+        if not bookings:
+            logging.warning(f"No bookings found for agent_email {agent_email} with booking_id {booking_id}")
+
+        return bookings
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving agent booking list in get_bookings_by_agent_crud: {str(e)}"
+        )
+
 
 
 # CRUD operations for update agent
 def update_agent_crud(db: Session, agent: Agent, agent_data: dict) -> Agent:
     """Update an agent with new data based on agent email (excluding email modification)."""
-    # Update the agent's fields using agent_data
-    for key, value in agent_data.items():
-        if hasattr(agent, key) and value is not None:
-            setattr(agent, key, value)
+    try:
+        for key, value in agent_data.items():
+            if hasattr(agent, key):
+                setattr(agent, key, value)
 
-    db.commit()
-    db.refresh(agent)
-    # Return the updated agent response
-    return agent
+        db.commit()
+        db.refresh(agent)  # Ensure updated values are fetched
+        return agent
+    except Exception as e:
+        db.rollback()  # Rollback in case of failure
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating agent in update_agent_crud: {str(e)}"
+        )
+
+
 
 
 # CRUD operations for verify Agent
@@ -148,7 +165,7 @@ def verify_agent_crud(db: Session, agent_email: str, verification_status: str, a
         return existing_agent
     except Exception as e:
         db.rollback()  # Roll back changes if there's an error
-        raise Exception(f"Database error while updating agent verification: {str(e)}")
+        raise Exception(f"Database error while updating agent verification in verify_agent_crud: {str(e)}")
     
 
 # CRUD operations for suspend/active Agent
@@ -169,7 +186,7 @@ def suspend_or_active_agent_crud(db: Session, agent_email: str, active_flag: int
        db.refresh(agent)
        return agent
     except Exception as e:
-        log_error(f"Error in suspend or active agent: {str(e)}", 500)
+        log_error(f"Error in suspend or active agent in CRUD: {str(e)}", 500)
         raise
 
 
@@ -181,5 +198,5 @@ def populate_categories(db: Session):
         populate_dynamic_entries(db, Agent, categories, 'agent_category')
         log_success("Agent categories populated successfully")
     except Exception as e:
-        log_error(f"Error populating categories: {str(e)}", 500)
+        log_error(f"Error populating categories in populate_categories CRUD: {str(e)}", 500)
         raise

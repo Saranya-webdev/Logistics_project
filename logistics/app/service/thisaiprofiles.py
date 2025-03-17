@@ -1,14 +1,9 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from sqlalchemy.exc import IntegrityError
 from app.models.thisaiprofiles import Associate,AssociatesCredential
 from app.models.enums import VerificationStatus
 from app.utils.utils import check_existing_by_email, check_existing_by_id_and_email,get_credential_by_id
-<<<<<<< HEAD
 from app.crud.thisaiprofiles import create_associates_crud, update_associates_crud, suspend_or_activate_associates_crud, verify_associate_crud,get_associates_profile_crud,get_associates_profiles_list_crud, create_associates_credential,  update_associates_password_crud,get_bookings_by_associate_crud
-=======
-from app.crud.thisaiprofiles import create_associates_crud, update_associates_crud, suspend_or_activate_associates_crud, verify_associate_crud,get_associates_profile_crud,get_associates_profiles_list_crud, create_associates_credential,  update_associates_password_crud
->>>>>>> origin/main
 import logging
 import bcrypt
 
@@ -50,7 +45,7 @@ def create_associates_service(db: Session, associates_data: dict) -> dict:
             "associates_mobile": new_associate.associates_mobile,
             "associates_email": new_associate.associates_email,
             "associates_role": new_associate.associates_role,
-            "verification_status": new_associate.verification_status,
+            "associates_verification_status": new_associate.associates_verification_status,
             "active_flag": new_associate.active_flag
         }
     except Exception as e:
@@ -123,7 +118,7 @@ def update_associates_service(db: Session, associates_email: str, associates_dat
             "associates_role": updated_associate.associates_role,
             "active_flag": updated_associate.active_flag,
             "remarks": updated_associate.remarks,
-            "verification_status": updated_associate.verification_status
+            "associates_verification_status": updated_associate.associates_verification_status
         }
 
     except Exception as e:
@@ -153,7 +148,7 @@ def suspend_or_activate_associates_service(db: Session, associates_email: str, a
             "associates_mobile": updated_associates.associates_mobile,
             "associates_role": updated_associates.associates_role.value,  # Enum serialized as string
             "active_flag": updated_associates.active_flag,
-            "verification_status": updated_associates.verification_status,
+            "associates_verification_status": updated_associates.associates_verification_status,
             "remarks": updated_associates.remarks
         }
 
@@ -167,22 +162,22 @@ def suspend_or_activate_associates_service(db: Session, associates_email: str, a
         )
 
     
-def verify_associate_service(db: Session, associates_email: str, verification_status: str) -> dict:
+def verify_associate_service(db: Session, associates_email: str, associates_verification_status: str) -> dict:
     """
     Service method to verify the associate and update their verification status and active flag.
     """
     try:
         # Ensure verification_status is treated as a string
-        verification_status_value = verification_status if isinstance(verification_status, str) else verification_status.value
+        verification_status_value = associates_verification_status if isinstance(associates_verification_status, str) else associates_verification_status.value
 
         # Now compare verification_status with Enum's value
-        if verification_status_value.lower() == VerificationStatus.verified.value:
+        if verification_status_value.lower() == VerificationStatus.Verified.value:
             active_flag = 1
         else:
             active_flag = 0
 
         # Call the CRUD function to update the associate's status
-        updated_associate = verify_associate_crud(db, associates_email, verification_status, active_flag)
+        updated_associate = verify_associate_crud(db, associates_email, associates_verification_status, active_flag)
 
         if not updated_associate:
             raise HTTPException(
@@ -197,7 +192,7 @@ def verify_associate_service(db: Session, associates_email: str, verification_st
                 "associates_name": updated_associate.associates_name,
                 "associates_email": updated_associate.associates_email,
                 "associates_mobile": updated_associate.associates_mobile,
-                "verification_status": updated_associate.verification_status.value,  # Convert Enum to string
+                "associates_verification_status": updated_associate.associates_verification_status.value,  # Convert Enum to string
                 "active_flag": updated_associate.active_flag,
                 "associates_role": updated_associate.associates_role.value,  # Convert Enum to string
                 "remarks": updated_associate.remarks,
@@ -267,7 +262,6 @@ def get_associatess_profile_list(db: Session) -> list:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while retrieving associates profiles: {str(e)}"
         )
-<<<<<<< HEAD
 
 
 def get_bookings_by_associate_service(db, associates_email):
@@ -315,5 +309,3 @@ def get_bookings_by_associate_service(db, associates_email):
     except Exception as e:
         logging.error(f"Error retrieving bookings by associate {associates_email}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-=======
->>>>>>> origin/main

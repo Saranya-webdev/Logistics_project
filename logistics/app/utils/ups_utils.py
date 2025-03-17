@@ -4,10 +4,13 @@ import json
 from datetime import datetime
 from PIL import Image
 import io
+import os
+
+
 
 import requests
 
-async def get_ups_shipping_rates(access_token, shipper_address, ship_to_address, ship_from_address, package_details):
+async def get_ups_shipping_rates(access_token, shipper_address, ship_to_address, ship_from_address, package_details,pickup_date,pickup_time, package_count):
   """
   Retrieves shipping rates and transit times from the UPS API.
 
@@ -79,43 +82,43 @@ async def get_ups_shipping_rates(access_token, shipper_address, ship_to_address,
           }
         ]
       },
-    "PickupType": {"Code": "03"},
+    "PickupType": {"Code": "06"},
         "DeliveryTimeInformation": {
           "PackageBillType": package_details["DeliveryTimeInformation"]["PackageBillType"],  
-          "Pickup": {"Date": package_details["DeliveryTimeInformation"]["Pickup"]["Date"]}
+          #"Pickup": {"Date": package_details["DeliveryTimeInformation"]["Pickup"]["Date"]}
+                          #"PackageBillType": package_data.get("packagebilltype", ""),
+          # "Pickup": {"Date": pickup_date}
+          "Pickup": {
+            "Date": pickup_date, 
+            "Time": pickup_time
+          }
         },
-        "NumOfPieces": package_details["NumOfPieces"],
-        # "DocumentsOnlyIndicator":package_details["DocumentsOnlyIndicator"],
+        "NumOfPieces": package_count,
         "Package": {
           "PackagingType": {
             "Code": package_details["Packaging"]["Code"],
             "Description": package_details["Packaging"]["Description"]
-          },
-          "Dimensions": {
-            "UnitOfMeasurement": {
-              "Code": package_details["Dimensions"]["UnitOfMeasurement"]["Code"],
-              "Description": package_details["Dimensions"]["UnitOfMeasurement"]["Description"]
-            },
-            "Length": package_details["Dimensions"]["Length"],
-            "Width": package_details["Dimensions"]["Width"],
-            "Height": package_details["Dimensions"]["Height"]
-          },
-          "PackageWeight": {
-            "UnitOfMeasurement": {
-              "Code": package_details["PackageWeight"]["UnitOfMeasurement"]["Code"],
-              "Description": package_details["PackageWeight"]["UnitOfMeasurement"]["Description"]
-            },
-            "Weight": package_details["PackageWeight"]["Weight"]
-          }
+           }
           
         }
       }
     }
   }
-  # Conditionally add DocumentsOnlyIndicator
+  payload["RateRequest"]["Shipment"]["Package"]["PackageWeight"] = package_details.get("PackageWeight", {
+    "UnitOfMeasurement": {"Code": "LBS", "Description": "Pounds"},
+    "Weight": "1"
+})
+  # Ensure weight is a string
+  payload["RateRequest"]["Shipment"]["Package"]["PackageWeight"]["Weight"] = str(payload["RateRequest"]["Shipment"]["Package"]["PackageWeight"]["Weight"])
+  # Conditionally add Dimensions and PackageWeight if it's a Non-Document package
+  if package_details["DocumentsOnlyIndicator"] == "Non-Document":
+    payload["RateRequest"]["Shipment"]["Package"]["Dimensions"] = package_details["Dimensions"]
+
+# Conditionally add DocumentsOnlyIndicator
   if package_details.get("DocumentsOnlyIndicator"):
     payload["RateRequest"]["Shipment"]["DocumentsOnlyIndicator"] = package_details["DocumentsOnlyIndicator"]
 
+    print(f"pickup date inside ups_utils: {package_details}")
     print(f"package details inside ups_utils: {package_details}")
     print(f"packagebilltype inside ups_utils: {package_details.get('PackageBillType')}")
     print(f"packagebilltype from deliverytimeinformation: {package_details['DeliveryTimeInformation']['PackageBillType']}")
@@ -181,7 +184,6 @@ async def get_ups_shipping_rates(access_token, shipper_address, ship_to_address,
             else:
                 print("Failed to retrieve shipping rates.")     
     return rate_list
-    # return response.json()
   except requests.exceptions.RequestException as e:
     print(f"Error making UPS API request: {e}")
     return None
@@ -300,10 +302,12 @@ def ups_address_validation(access_token, address_json):
 
 
 def ups_create_shipment(access_token, shipper_address, ship_from_address, ship_to_address, 
-                           package_details, service_code, payment_info):
+                           package_details, service_code, payment_info, pickup_date, pickup_time):
+    print(f"package_details from ups utils", package_details)
 
     version = "v2409"
-    url = "https://wwwcie.ups.com/api/shipments/" + version + "/ship"
+    # url = "https://wwwcie.ups.com/api/shipments/" + version + "/ship"
+    url = "https://onlinetools.ups.com/api/shipments/" + version + "/ship"
 
     query = {
     "additionaladdressvalidation": "string"
@@ -339,7 +343,17 @@ def ups_create_shipment(access_token, shipper_address, ship_from_address, ship_t
                     "Code": service_code
                 },
                 "PaymentInformation": payment_info
-            }
+            },
+            "Pickup": {
+                "Date": pickup_date,
+                "Time": pickup_time
+            },
+        
+                 "LabelSpecification": {
+                    "LabelImageFormat": {
+                        "Code": "PNG"
+                    }
+                }
         }
     }
 
@@ -355,90 +369,97 @@ def ups_create_shipment(access_token, shipper_address, ship_from_address, ship_t
 
     data = response.json()
     print("Create Shipping Response  :::::::",data)
+
+    shipment_response = data.get("ShipmentResponse", {})
+    shipment_results = shipment_response.get("ShipmentResults", {})
+    package_results = shipment_results.get("PackageResults",[])
+    if not package_results:
+            raise ValueError("package details not available")
     
 
     # Accessing Shipment Identification Number
-    shipment_id = data['ShipmentResponse']['ShipmentResults']['ShipmentIdentificationNumber'] 
+    shipment_id = shipment_results.get('ShipmentIdentificationNumber') 
+        # Accessing Tracking Number
+    tracking_number = package_results[0].get('TrackingNumber') 
+        # Accessing Total Charges
+    total_charges = shipment_results.get('ShipmentCharges',{}).get('TotalCharges',{}).get('MonetaryValue')
+        # Accessing Base Service Charge
+    base_service_charge = package_results[0].get('BaseServiceCharge',{}).get('MonetaryValue') 
 
-    # Accessing Tracking Number
-    tracking_number = data['ShipmentResponse']['ShipmentResults']['PackageResults'][0]['TrackingNumber'] 
-
-    # Accessing Total Charges
-    total_charges = data['ShipmentResponse']['ShipmentResults']['ShipmentCharges']['TotalCharges']['MonetaryValue'] 
-
-    # Accessing Base Service Charge
-    base_service_charge = data['ShipmentResponse']['ShipmentResults']['PackageResults'][0]['BaseServiceCharge']['MonetaryValue'] 
-
-    # Accessing a specific Rate Modifier (e.g., Demand Surcharge - Residential)
+        # Accessing a specific Rate Modifier (e.g., Demand Surcharge - Residential)
     residential_surcharge = None
+        # Accessing Shipping Label Image (Base64 encoded)
+    shipping_label_image = shipment_results.get("ShippingLabel", {}).get("GraphicImage") or shipment_results.get("PackageResults", [{}])[0].get("ShippingLabel", {}).get("GraphicImage")
 
-    """
 
-    
-    for modifier in data['ShipmentResponse']['ShipmentResults']['PackageResults'][0]['RateModifier']:
-        if modifier['ModifierType'] == 'DSR': 
-            residential_surcharge = modifier['Amount']
-            break 
-"""
-    # Accessing Shipping Label Image (Base64 encoded)
-    shipping_label_image = data['ShipmentResponse']['ShipmentResults']['PackageResults'][0]['ShippingLabel']['GraphicImage']
+    if shipping_label_image:
+            # Save shipping label
+            label_filename = save_shipping_label(shipping_label_image, shipment_id)
+    else:
+            label_filename = None
 
-    save_shipping_label(data,shipment_id)
     shipment_details = {
-       "shipment_id":shipment_id,
-       "tracking_number" :tracking_number,
-       "total_charges" :total_charges,
-       "base_service_charge":base_service_charge,
-       "residential_surcharge":residential_surcharge
-    }
+            "shipment_id": shipment_id,
+            "tracking_number": tracking_number,
+            "total_charges": total_charges,
+            "base_service_charge": base_service_charge,
+            "residential_surcharge": residential_surcharge,
+            "label_filename": label_filename,
+        }
 
-    print("\nshipment_id : ", shipment_id )
-    print("\nTracking Number : ",  tracking_number )
+    print("\nshipment_id : ", shipment_id)
+    print("\nTracking Number : ", tracking_number)
     print("\nTotal Charge : ", total_charges)
     print("\nBase Service Charge : ", base_service_charge)
-    print("\nResidential Surcharge : ",residential_surcharge)
+    print("\nResidential Surcharge : ", residential_surcharge)
     return shipment_details
 
 
-def save_shipping_label(data, shipment_id):
-  """Saves the shipping label image with the shipment ID as the filename.
+def save_shipping_label(shipping_label_image, shipment_id):
+    """Saves the shipping label image with the shipment ID as the filename.
 
-  Args:
-      data: The JSON response data from the UPS API.
-      shipment_id: The shipment identification number retrieved from the response.
-  """
-
-  try:
-    shipping_label_image = data['ShipmentResponse']['ShipmentResults']['PackageResults'][0]['ShippingLabel']['GraphicImage']
-
-    # Check for valid Base64-encoded image data
-    if not isinstance(shipping_label_image, str):
-      raise ValueError("Shipping label image is not a string.")
-
-    # Decode Base64 image
-    img_bytes = base64.b64decode(shipping_label_image)
-
-    # Try opening the image using both GIF and PNG formats
+    Args:
+        data: The JSON response data from the UPS API.
+        shipment_id: The shipment identification number retrieved from the response.
+    """
     try:
-      img = Image.open(io.BytesIO(img_bytes))
-      filename = f"{shipment_id}.gif"
-      img.save(filename)
-      print(f"Shipping label saved as: {filename}")
-    except (IOError, SyntaxError):
-      # If opening as GIF fails, attempt PNG
-      try:
-        img = Image.open(io.BytesIO(img_bytes))
-        filename = f"{shipment_id}.png"
-        img.save(filename)
-        print(f"Shipping label saved as: {filename} (as PNG)")
-      except (IOError, SyntaxError) as e:
-        print(f"Error saving image: {e}")
+        # Check for valid Base64-encoded image data
+        if not isinstance(shipping_label_image, str):
+            raise ValueError("Shipping label image is not a string.")
 
-  except KeyError as e:
-    print(f"KeyError: {e}")
+        # Decode Base64 image
+        img_bytes = base64.b64decode(shipping_label_image)
 
-  except Exception as e:
-    print(f"An error occurred: {e}")
+        # Define the new save location
+        save_dir = r"C:\Users\saran\thisai\courier_frontend\public\shipment_labels"
 
+        # Ensure the directory exists
+        os.makedirs(save_dir, exist_ok=True)
 
+        # Try opening the image using both GIF and PNG formats
+        try:
+            img = Image.open(io.BytesIO(img_bytes))
+            filename = f"{shipment_id}.gif"
+            file_path = os.path.join(save_dir, filename)
+            img.save(file_path)
+            print(f"Shipping label saved as: {file_path}")
+            return f"shipment_labels/{filename}"
+        except (IOError, SyntaxError):
+            # If opening as GIF fails, attempt PNG
+            try:
+                img = Image.open(io.BytesIO(img_bytes))
+                filename = f"{shipment_id}.png"
+                file_path = os.path.join(save_dir, filename)
+                img.save(file_path)
+                print(f"Shipping label saved as: {file_path} (as PNG)")
+                return f"shipment_labels/{filename}"
+            except (IOError, SyntaxError) as e:
+                print(f"Error saving image: {e}")
+                return None
 
+    except ValueError as e:
+        print(f"ValueError: {e}")
+        return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None

@@ -2,13 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.databases.mysqldb import get_db
 import logging
-<<<<<<< HEAD
+
 from app.schemas.thisaiprofiles import AssociatesCreate, AssociatesResponse, AssociatesUpdateResponse, AssociatesUpdate,SuspendOrActiveRequest,SuspendOrActiveResponse, VerifyStatusRequest, VerifyStatusResponse, AssociatesCredentialCreate,AssociatesCredentialResponse, AssociatesPasswordUpdate,AssociateBookingListResponse
 from app.service.thisaiprofiles import create_associates_service, update_associates_service, suspend_or_activate_associates_service,verify_associate_service, get_associates_profile_service, get_associatess_profile_list, create_associates_credential_service,update_associates_password_service,get_bookings_by_associate_service
-=======
-from app.schemas.thisaiprofiles import AssociatesCreate, AssociatesResponse, AssociatesUpdateResponse, AssociatesUpdate,SuspendOrActiveRequest,SuspendOrActiveResponse, VerifyStatusRequest, VerifyStatusResponse, AssociatesCredentialCreate,AssociatesCredentialResponse, AssociatesPasswordUpdate
-from app.service.thisaiprofiles import create_associates_service, update_associates_service, suspend_or_activate_associates_service,verify_associate_service, get_associates_profile_service, get_associatess_profile_list, create_associates_credential_service,update_associates_password_service
->>>>>>> origin/main
+
 
 logger = logging.getLogger(__name__)
 
@@ -17,17 +14,14 @@ router = APIRouter()
 
 @router.post("/createassociates/", response_model=AssociatesResponse)
 async def create_new_associates(
-    associates_data: AssociatesCreate,  # associates data will be passed in the request body
-    db: Session = Depends(get_db)  # Database session dependency
+    associates_data: AssociatesCreate,  
+    db: Session = Depends(get_db) 
 ):
     """
     Endpoint to create a new associate. It validates the required fields and creates the associate in the system.
     """
     try:
-        # Log the received associates data
         logger.debug(f"Received associates data: {associates_data}")
-
-        # Call the service layer to create the associate
         result = create_associates_service(db, associates_data.dict())
 
         if result.get("message") == "Associate already exists":
@@ -70,7 +64,7 @@ def create_associates_credential(
         associates_credential_id=associates_credential.associates_credential_id,
         associates_id=associates_credential.associates_id,
         email_id=associates_credential.email_id,  
-        password=associates_credential.password  #  Consider removing from response for security
+        password=associates_credential.password 
        )
     except Exception as e:
         raise HTTPException(
@@ -106,7 +100,6 @@ async def update_associates_status(
     API to activate or suspend an associate.
     """
     try:
-        # Unpack the dictionary into keyword arguments
         result = suspend_or_activate_associates_service(
             db, 
             **update_request.dict()
@@ -169,7 +162,7 @@ def get_associates_profiles(db: Session = Depends(get_db)):
     API Endpoint to retrieve all associates profiles.
     """
     try:
-        return get_associatess_profile_list(db)  # Call service layer
+        return get_associatess_profile_list(db) 
     except HTTPException as e:
         raise e
     except Exception as e:
@@ -177,7 +170,7 @@ def get_associates_profiles(db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected error occurred: {str(e)}"
         )
-<<<<<<< HEAD
+
     
 
 @router.get("/{associates_email}/bookings", response_model=AssociateBookingListResponse)
@@ -188,20 +181,18 @@ def get_bookings_by_associate(associates_email: str, db: Session = Depends(get_d
     try:
         return get_bookings_by_associate_service(db, associates_email)
     except HTTPException as http_ex:
-        raise http_ex  # Re-raise FastAPI HTTP exceptions
+        raise http_ex 
     except Exception as e:
         logging.error(f"Error retrieving bookings for associate {associates_email}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error. Please try again later.")
 
-=======
->>>>>>> origin/main
 
 @router.put("/updateassociate", response_model=AssociatesUpdateResponse, status_code=status.HTTP_200_OK)
 async def update_associate(associate_data: AssociatesUpdate, db: Session = Depends(get_db)):
     """
     Route for updating an associate's details using the request body.
     """
-    if not associate_data.associates_email:  # Ensure proper field name is used
+    if not associate_data.associates_email: 
         raise HTTPException(status_code=400, detail="Associate email is required for update.")
 
     associate_data_dict = associate_data.dict()

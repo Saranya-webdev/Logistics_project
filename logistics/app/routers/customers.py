@@ -16,6 +16,8 @@ from app.schemas.customers import (
 )
 from app.databases.mysqldb import get_db
 import logging
+from typing import Optional
+from fastapi import Query
 
 from app.service.customers import create_customer_service, suspend_or_activate_customer_service, verify_corporate_customer_service, get_customer_profile_service, get_customers_list_service, get_customer_with_booking_list_service, update_customer_service, create_customer_credential_service, update_customer_password_service
 # get_customer_with_booking_details_service,
@@ -87,7 +89,28 @@ def update_customer_password(data: CustomerPasswordUpdate, db: Session = Depends
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
     
+@router.post("/verifycustomer", response_model=VerifyStatusResponse)
+async def update_customer_status(
+    update_status: VerifyStatusRequest,
+    db: Session = Depends(get_db)
+):
+    try:
+        updated_corporate_customer = verify_corporate_customer_service(
+            db, 
+            update_status.customer_email,
+            update_status.verification_status
+        )
+        return updated_corporate_customer
 
+    except HTTPException as http_exc:
+        raise http_exc
+
+    except Exception as e:
+        # General exception handling for unexpected errors
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred: {str(e)}"
+        )
 
 @router.post("/suspend-or-activate/", response_model=SuspendOrActiveResponse)
 async def update_customer_status(
@@ -116,29 +139,6 @@ async def update_customer_status(
         )
 
 
-@router.post("/verifycustomer", response_model=VerifyStatusResponse)
-async def update_customer_status(
-    update_status: VerifyStatusRequest,
-    db: Session = Depends(get_db)
-):
-    try:
-        updated_corporate_customer = verify_corporate_customer_service(
-            db, 
-            update_status.customer_email,
-            update_status.verification_status
-        )
-        return updated_corporate_customer
-
-    except HTTPException as http_exc:
-        raise http_exc
-
-    except Exception as e:
-        # General exception handling for unexpected errors
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred: {str(e)}"
-        )
-
 
 @router.get("/customer/{customer_email}")
 def get_customer_profile(customer_email: str, db: Session = Depends(get_db)):
@@ -166,13 +166,13 @@ def get_customer_profile_list(db: Session = Depends(get_db)):
 
 # Get customer with booking list
 @router.get("/{customer_email}/bookinglist", response_model=CustomerBookingListResponse)
-def get_customer_booking_list(customer_email: str, db: Session = Depends(get_db)):
+def get_customer_booking_list(customer_email: str,booking_id: Optional[int] = Query(None), db: Session = Depends(get_db)):
     """
     Retrieve the list of bookings for a customer identified by their customer_email.
     Includes validation for corporate customer details.
     """
     try:
-        return get_customer_with_booking_list_service(db, customer_email)  # No need to wrap in a dict
+        return get_customer_with_booking_list_service(db, customer_email, booking_id)  # No need to wrap in a dict
 
     except HTTPException as e:
         raise e
@@ -180,46 +180,7 @@ def get_customer_booking_list(customer_email: str, db: Session = Depends(get_db)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-#  Get customer booking details
-# @router.get("/customer/{customer_id}/booking/{booking_id}")
-# def get_customer_with_booking_details(
-#     customer_id: int, booking_id: int, db: Session = Depends(get_db)
-# ):
-#     """Retrieve a specific booking with its items for a given customer."""
-#     try:
-#         # Call the service function to get customer and booking details
-#         booking_response = get_customer_with_booking_details_service(db, customer_id, booking_id)
-#         return booking_response
-    
-#     except HTTPException as e:
-#         # Specific HTTP exception handling (e.g., 404 errors)
-#         raise e
-#     except Exception as e:
-#         logging.error(f"Error retrieving booking details for customer {customer_id} and booking {booking_id}: {str(e)}")
-#         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
-
-<<<<<<< HEAD
-# @router.put("/updatecustomer", response_model=CustomerUpdateResponse, status_code=status.HTTP_200_OK)
-# async def update_customer(customer_data: CustomerUpdate, db: Session = Depends(get_db)):
-#     """
-#     Route for updating an customer's details using the request body.
-#     """
-#     try:
-#        if not customer_data.customer_email:
-#          raise HTTPException(status_code=400, detail="customer email is required for update.")
-
-#        customer_data_dict = customer_data.dict()
-
-#        updated_customer = update_customer_service(db, customer_data_dict)
-
-#     except:
-#           if "message" in updated_customer:
-#            raise HTTPException(status_code=400, detail=updated_customer["message"])
-
-#           return updated_customer
-
-@router.put("/updatecustomer", response_model=CustomerUpdateResponse, status_code=status.HTTP_200_OK)
+@router.put("/updatecustomer", response_model=CustomerUpdateResponse, status_code=status.HTTP_200_OK, operation_id="update_customer_unique")
 async def update_customer(customer_data: CustomerUpdate, db: Session = Depends(get_db)):
     """
     Route for updating a customer's details using the request body.
@@ -231,8 +192,6 @@ async def update_customer(customer_data: CustomerUpdate, db: Session = Depends(g
 
     try:
         updated_customer = update_customer_service(db, customer_data_dict)
-        
-        # Ensure the response matches CustomerUpdateResponse
         if not isinstance(updated_customer, dict) or "customer_id" not in updated_customer:
             raise HTTPException(status_code=400, detail="Error updating customer details.")
 
@@ -240,24 +199,3 @@ async def update_customer(customer_data: CustomerUpdate, db: Session = Depends(g
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
-
-=======
-@router.put("/updatecustomer", response_model=CustomerUpdateResponse, status_code=status.HTTP_200_OK)
-async def update_customer(customer_data: CustomerUpdate, db: Session = Depends(get_db)):
-    """
-    Route for updating an customer's details using the request body.
-    """
-    try:
-       if not customer_data.customer_email:
-         raise HTTPException(status_code=400, detail="customer email is required for update.")
-
-       customer_data_dict = customer_data.dict()
-
-       updated_customer = update_customer_service(db, customer_data_dict)
-
-    except:
-          if "message" in updated_customer:
-           raise HTTPException(status_code=400, detail=updated_customer["message"])
-
-          return updated_customer
->>>>>>> origin/main

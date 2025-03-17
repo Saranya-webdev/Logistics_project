@@ -14,26 +14,21 @@ from app.crud.customers import populate_categories, populate_customer_types
 from app.routers.BookingStatistics import booking_router
 import logging
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 # Initialize FastAPI app
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-<<<<<<< HEAD
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Allows frontend requests from this origin
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-=======
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
->>>>>>> origin/main
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"], # Allowed HTTP methods
+    allow_headers=["*"], # Allows all headers
 )
 
 # Create tables (if they don't exist already) during startup
-Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine) #Ensures that all tables defined in Base are created in the database
 
 # Configure logging to display informational messages
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +44,7 @@ app.include_router(quotations.router, prefix='/thisaiapi/quotations', tags=["Quo
 app.include_router(addressbook.router, prefix='/thisaiapi/addressbook', tags=["AddressBook"], description="Operations related to address-books")
 app.include_router(booking_router, prefix="/thisaiapi/bookingstatics", tags=["Booking Statistics"], description="Operations related to booking-statics")
 
-# Startup event
+
 @app.on_event("startup")
 async def on_startup():
     """
@@ -66,6 +61,9 @@ async def on_startup():
         populate_categories(db)
         logger.info("Populating customer types...")
         populate_customer_types(db)
+        
+        # Log the local port where the app is running
+        logger.info(f"App is running locally on port: {os.getenv('PORT', '8000')}")
     except Exception as e:
         logger.error(f"Error during startup: {e}")
     finally:

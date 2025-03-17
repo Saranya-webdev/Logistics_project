@@ -1,16 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-<<<<<<< HEAD
 from app.schemas.agents import AgentCreate, AgentResponse, AgentUpdate, AgentUpdateResponse, SuspendOrActiveResponse, SuspendOrActiveRequest, VerifyStatusResponse, VerifyStatusRequest, AgentCredentialCreate, AgentCredentialResponse, AgentPasswordUpdate,AgentBookingListResponse
 from app.databases.mysqldb import get_db
 import logging
 from app.service.agents import update_agent_service, verify_agent_service, suspend_or_activate_agent, get_agent_profile, get_all_agents_profile, create_agent_service, create_agent_credential_service, update_agent_password_service, get_bookings_by_agent_service
-=======
-from app.schemas.agents import AgentCreate, AgentResponse, AgentUpdate, AgentUpdateResponse, SuspendOrActiveResponse, SuspendOrActiveRequest, VerifyStatusResponse, VerifyStatusRequest, AgentCredentialCreate, AgentCredentialResponse, AgentPasswordUpdate
-from app.databases.mysqldb import get_db
-import logging
-from app.service.agents import update_agent_service, verify_agent_service, suspend_or_activate_agent, get_agent_profile, get_all_agents_profile, create_agent_service, create_agent_credential_service, update_agent_password_service
->>>>>>> origin/main
+from typing import Optional
+from fastapi import Query
+
 
 router = APIRouter()
 
@@ -26,7 +22,7 @@ async def create_new_agent(agent_data: AgentCreate, db: Session = Depends(get_db
     """
     try:
         logger.debug(f"Received agent_data: {agent_data}")
-        result = create_agent_service(db, agent_data.dict())  # Explicitly call the CRUD function
+        result = create_agent_service(db, agent_data.dict())
 
         if result.get("message") == "Agent already exists":
             raise HTTPException(
@@ -69,7 +65,7 @@ def create_agent_credential(
         agent_credential_id=agent_credential.agent_credential_id,
         agent_id=agent_credential.agent_id,
         email_id=agent_credential.email_id,  
-        password=agent_credential.password  #  Consider removing from response for security
+        password=agent_credential.password  
         )
     except Exception as e:
         logger.error(f"Error while creating agent's credentails: {str(e)}")
@@ -109,10 +105,7 @@ async def update_agent_status(
             db, 
             **update_request.dict()
         )
-        
-        # FastAPI will automatically serialize the returned dict
-        return result["agent"]  # Returning only the 'agent' portion for the response model
-
+        return result["agent"] 
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
@@ -175,22 +168,22 @@ def get_all_agents_profiles_endpoint(db: Session = Depends(get_db)):
                             detail=f"An unexpected error occurred: {str(e)}")
 
 
-<<<<<<< HEAD
+
 @router.get("/{agent_email}/bookings", response_model=AgentBookingListResponse)
-def get_bookings_by_agent(agent_email: str, db: Session = Depends(get_db)):
+def get_bookings_by_agent(agent_email: str,booking_id: Optional[int] = Query(None), db: Session = Depends(get_db)):
     """
     Retrieve the list of bookings placed by an agent.
     """
     try:
-        return get_bookings_by_agent_service(db, agent_email)
+        return get_bookings_by_agent_service(db, agent_email,booking_id)
     except HTTPException as http_ex:
         raise http_ex  # Re-raise FastAPI HTTP exceptions
     except Exception as e:
         logging.error(f"Error retrieving bookings for agent {agent_email}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error. Please try again later.")
 
-=======
->>>>>>> origin/main
+
+
 
 # Update agent by ID
 @router.put("/updateagent", response_model=AgentUpdateResponse, status_code=status.HTTP_200_OK)

@@ -1,31 +1,45 @@
-from sqlalchemy import Integer, Column, DateTime, ForeignKey, Enum, DECIMAL, Date
-from sqlalchemy.sql import func
+from sqlalchemy import Integer, Column,ForeignKey, Enum, DECIMAL, Date,Enum as SQLEnum,String,Date
 from sqlalchemy.orm import relationship
 from app.models.base import Base
-from app.models.enums import PickupMethod, BookingStatus, PackageType
-from app.models.bookings import Bookings
-
+from app.models.enums import QuotationStatus, PackageType
 
 class Quotations(Base):
-    __tablename__ = "quotation"
+    __tablename__ = 'quotation'
     __table_args__ = {'extend_existing': True}
 
     quotation_id = Column(Integer, primary_key=True, autoincrement=True)
-    customer_id = Column(Integer, ForeignKey('customer.customer_id'))  # Reference to Customer
-    created_by = Column(Integer, ForeignKey("customer.customer_id"))  # Reference to Customer (could be the creator)
-    pickup_method = Column(Enum(PickupMethod), nullable=False, name='pickup_method')
-    status = Column(Enum(BookingStatus), default=BookingStatus.pending, nullable=False, name='status')  # Default value for 'status'
-    valid_until = Column(Date, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=func.now())
-    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    quotation_status = Column(Enum(BookingStatus), nullable=True)
+    from_name = Column(String(255), nullable=False)
+    from_mobile = Column(String(15), nullable=False)
+    from_email = Column(String(255), nullable=False)
+    from_address = Column(String(255), nullable=False)
+    from_city = Column(String(255), nullable=False)
+    from_state = Column(String(255), nullable=False)
+    from_country = Column(String(255), nullable=False)
+    from_pincode = Column(String(255), nullable=True)
+    
+    to_name = Column(String(255), nullable=False)
+    to_mobile = Column(String(15), nullable=False)
+    to_email = Column(String(255), nullable=False)
+    to_address = Column(String(255), nullable=False)
+    to_city = Column(String(255), nullable=False)
+    to_state = Column(String(255), nullable=False)
+    to_country = Column(String(255), nullable=False)
+    to_pincode = Column(String(255), nullable=True)
 
-    # Correct relationships with foreign_keys argument
-    quotation_items = relationship("QuotationItems", back_populates="quotation", cascade="all, delete-orphan")
-    # bookings = relationship('Bookings', back_populates='quotation', foreign_keys=[Bookings.quotation_id])  # Specify foreign key
+    package_count = Column(Integer, nullable=False)
+    carrier_name = Column(String(255), nullable=False)
+    carrier_plan = Column(String(255), nullable=False)
+    est_cost = Column(DECIMAL(10, 2), nullable=False)
+    est_delivery_date = Column(Date, nullable=False)
+    booking_by = Column(Integer, ForeignKey("customer.customer_id"))
+    total_cost = Column(DECIMAL(10, 2), nullable=False)
+    status = Column(SQLEnum(QuotationStatus, name="quotation_status_enum"), default=QuotationStatus.unsaved,nullable=True)
+    customer_id = Column(Integer, ForeignKey('customer.customer_id'))
 
-    customer = relationship('Customer', back_populates='quotations', foreign_keys=[customer_id])
-
+    # Relationships
+    customer = relationship("Customer", back_populates="quotations", foreign_keys=[customer_id])
+    quotation_items = relationship("QuotationItems", back_populates="quotation")
+    
     class Config:
         orm_mode = True
 

@@ -1,11 +1,8 @@
-from pydantic import BaseModel, root_validator, Field, validator
+from pydantic import BaseModel
 from typing import Optional, List
 from app.models.enums import Category, VerificationStatus
-<<<<<<< HEAD
-from app.schemas.bookings import BookingDetailedResponse
-=======
-from app.schemas.bookings import BookingSummary
->>>>>>> origin/main
+from datetime import date
+
 
 class Agent(BaseModel):
     agent_name: str
@@ -54,6 +51,8 @@ class AgentUpdate(BaseModel):
     agent_geolocation: Optional[str] = None
     agent_businessname: Optional[str] = None
     tax_id: Optional[str] = None
+    agent_category: Category
+
 
     class Config:
         from_attributes = True
@@ -104,7 +103,6 @@ class AgentResponse(BaseModel):
     class Config:
         from_attributes = True
 
-<<<<<<< HEAD
 class AgentBookingItems(BaseModel):
     item_id: int
     item_weight: float
@@ -123,7 +121,9 @@ class AgentBookings(BaseModel):
     to_pincode: str
     carrier_plan: str
     carrier_name: str
+    est_delivery_date: date
     pickup_date: str
+    pickup_time: str
     package_count: str
     total_cost: str
     booking_status: str
@@ -137,28 +137,6 @@ class AgentBookingListResponse(BaseModel):
     class Config:
         from_attributes = True
  
-=======
-
-class AgentBookingListResponse(BaseModel):
-    agent_id: int
-    agent_name: str
-    agent_mobile: str
-    agent_email: str
-    agent_address: str
-    agent_city: str
-    agent_state: str
-    agent_country: str
-    agent_pincode: Optional[str]
-    agent_geolocation: Optional[str]
-    agent_businessname: Optional[str]
-    tax_id: Optional[str]
-    bookings: List[BookingSummary]
-
-    class Config:
-        from_attributes = True
-
-
->>>>>>> origin/main
 class SuspendOrActiveRequest(BaseModel):
     agent_email: str
     active_flag: int

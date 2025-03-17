@@ -4,8 +4,9 @@ from sqlalchemy.exc import IntegrityError
 from app.models.customers import Customer,CustomerBusiness,CustomerCredential
 from app.models.enums import  Category, Type
 from app.models.bookings import Bookings
-from app.utils.utils import  populate_dynamic_entries
+from app.utils.utils import  populate_dynamic_entries, log_and_raise_exception
 import logging
+from typing import Optional
 
 
 logger = logging.getLogger(__name__)
@@ -60,16 +61,16 @@ def create_customer_crud(db: Session, customer_data: dict, business_data: dict =
                 db.add(new_business)
                 db.commit()
                 db.refresh(new_business)  # Refresh the business details
-                print(f"business details after commit and refresh: {new_business}")
+                print(f"business details after commit and refresh in create_customer_crud: {new_business}")
 
         return new_customer, new_business
 
     except IntegrityError as e:
         db.rollback()
-        raise Exception(f"Error creating customer: {str(e)}")
+        raise Exception(f"Error creating customer in create_customer_crud: {str(e)}")
     except Exception as e:
         db.rollback()
-        raise Exception(f"Unexpected error: {str(e)}")
+        raise Exception(f"Unexpected error in create_customer_crud: {str(e)}")
     
 # CRUD operation for create customer's credential    
 def create_customer_credential(db: Session, customer_id: int, email_id: str, password: str):
@@ -87,7 +88,7 @@ def create_customer_credential(db: Session, customer_id: int, email_id: str, pas
         return customer_credential
     except Exception as e:
         db.rollback()
-        raise Exception(f"Database error: {e}")
+        raise Exception(f"Database error in create_customer_credential: {e}")
     
 
 # CRUD operation for update customer's password
@@ -102,7 +103,7 @@ def update_customer_password_crud(db: Session, credential: CustomerCredential, h
         return credential
     except Exception as e:
         db.rollback()  # Rollback in case of failure
-        raise Exception(f"Database error while updating password: {e}")     
+        raise Exception(f"Database error while updating password in update_customer_password_crud: {e}")     
 
 
 # CRUD operation for get customer profile
@@ -126,7 +127,7 @@ def get_customer_profile_crud(db: Session, customer_email: str):
         # Catch any other exceptions and raise a 500 error
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving customer profile: {str(e)}"
+            detail=f"Error retrieving customer profile in get_customer_profile_crud: {str(e)}"
         )
 
 
@@ -144,70 +145,62 @@ def get_customer_profile_list_crud(db: Session) -> list:
         # Catch any other exceptions and raise a 500 error
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving customer profile: {str(e)}"
+            detail=f"Error retrieving customer profile in get_customer_profile_list_crud: {str(e)}"
         )
 
-
-# CRUD operation for get customer with booking details
-# def get_customer_with_booking_details_crud(db: Session, customer_id: int, booking_id: int):
-#     """Fetch a specific booking and its related items for a given customer."""
-#     try:
-
-#        return db.query(Bookings).filter(
-#         Bookings.customer_id == customer_id,
-#         Bookings.booking_id == booking_id
-#     ).first()
-
-#     except Exception as e:
-#         # Catch any other exceptions and raise a 500 error
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail=f"Error retrieving customer with booking details: {str(e)}"
-#         )
-
-
 # CRUD operation for get customer's booking list
-def get_customer_with_booking_list_crud(db: Session, customer_id: int) -> list:
-    """CRUD function to get the customer with thier booking list from the database."""
+def get_customer_with_booking_list_crud(db: Session, customer_id: int, booking_id: Optional[int] = None) -> list:
+    """Retrieve a customer's bookings. If booking_id is provided, filter by it."""
     try:
-       bookings = db.query(Bookings).filter(Bookings.customer_id == customer_id).options(
-           joinedload(Bookings.booking_items)
-       ).all()
-       if not bookings:
-         logging.warning(f"No bookings found for customer_id {customer_id}")
-       return bookings
+        # Ensure Bookings is properly referenced as a model, not a function
+        query = db.query(Bookings).filter(Bookings.customer_id == customer_id)
+
+        if booking_id:
+            query = query.filter(Bookings.booking_id == booking_id)  # Filter for a specific booking
+
+        query = query.options(joinedload(Bookings.booking_items))  # Load related items
+
+        bookings = query.all()  # Ensure `all()` is called on a valid query object
+
+        if not bookings:
+            logging.warning(f"No bookings found for customer_id {customer_id} with booking_id {booking_id}")
+
+        return bookings
+
     except Exception as e:
-        # Catch any other exceptions and raise a 500 error
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving customer with thier booking list: {str(e)}"
-        )   
+            detail=f"Error retrieving customer booking list in get_customer_with_booking_list_crud: {str(e)}"
+        )
+  
        
-
-# CRUD operation for update customer
 def update_customer_crud(db: Session, customer_email: str, customer_data: dict):
     """CRUD function to update the customer details in the database."""
     try:
         # Retrieve the customer from the database
         customer = db.query(Customer).filter(Customer.customer_email == customer_email).first()
         if not customer:
-            return None
+            logger.error(f"Customer not found with email: {customer_email}")
+            return None, None  # Ensure tuple format is maintained
 
         # Update the customer's details dynamically
         for key, value in customer_data.items():
             setattr(customer, key, value)
 
-        # Commit the transaction
+        # Commit the customer update first
         db.commit()
-
-        # Return the updated customer object
         db.refresh(customer)
-        return customer
+
+        logger.info(f"Customer {customer_email} updated successfully.")
+
+        return customer.customer_type, customer
 
     except Exception as e:
         db.rollback()  # Rollback in case of an error
-        logger.error(f"Error in updating customer in CRUD: {str(e)}")
-        return None
+        logger.error(f"Error in updating customer in update_customer_crud: {str(e)}")
+        return None, None  # Maintain expected return type
+
+
 
 
 # CRUD operation for verify corporate customer
@@ -224,7 +217,7 @@ def verify_corporate_customer_crud(db: Session, customer: Customer, active_flag:
 
     except Exception as e:
         db.rollback()  # Roll back changes if there's an error
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error updating customer verification: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error updating customer verification in verify_corporate_customer_crud: {str(e)}")
 
 
 # CRUD operation for suspend/active customer
@@ -232,19 +225,27 @@ def suspend_or_active_customer_crud(
     db: Session, customer_email: str, active_flag: int, remarks: str
 ):
     """Suspend or activate a customer directly."""
-    # Retrieve the customer by email
-    customer = db.query(Customer).filter(Customer.customer_email == customer_email).first()
-    
-    if not customer:
-        return None  # Return None if the customer is not found
+    try:
+        # Retrieve the customer by email
+        customer = db.query(Customer).filter(Customer.customer_email == customer_email).first()
+        
+        if not customer:
+            log_and_raise_exception(f"Customer with email {customer_email} not found in suspend_or_active_customer_crud", 404)
 
-    # Update the customer's status and remarks
-    customer.active_flag = active_flag
-    customer.remarks = remarks
-    db.commit()
-    db.refresh(customer)
-    
-    return customer
+        # Update the customer's status and remarks
+        customer.active_flag = active_flag
+        customer.remarks = remarks
+        db.commit()
+        db.refresh(customer)
+        
+        return customer
+
+    except Exception as e:
+        db.rollback()  # Rollback on failure
+        log_and_raise_exception(f"Error updating customer status in suspend_or_active_customer_crud: {str(e)}", 500)
+        return None
+
+
 
 
 # Additional functions for populating categories and types
@@ -255,7 +256,7 @@ def populate_categories(db: Session):
         populate_dynamic_entries(db, Customer, categories, 'customer_category')
         log_success("Customer categories populated successfully")
     except Exception as e:
-        log_error(f"Error populating categories: {str(e)}", 500)
+        log_error(f"Error populating categories in customer's populate_categories CRUD: {str(e)}", 500)
         raise
 
 
@@ -266,7 +267,7 @@ def populate_customer_types(db: Session):
         populate_dynamic_entries(db, Customer, types, 'customer_type')
         log_success("Customer types populated successfully")
     except Exception as e:
-        log_error(f"Error populating customer types: {str(e)}", 500)
+        log_error(f"Error populating customer types in populate_customer_types CRUD: {str(e)}", 500)
         raise
 
 

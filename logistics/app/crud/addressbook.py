@@ -33,7 +33,7 @@ def create_address_book(db: Session, address: AddressBookCreate):
         return db_address
     except Exception as e:
         db.rollback()
-        logger.error(f"Error creating address book: {str(e)}")
+        logger.error(f"Error creating address book in create_address_book CRUD: {str(e)}")
         raise
 
 # Fetches an address book by ID.
@@ -47,7 +47,7 @@ def get_address_book(db: Session, address_id: int):
             raise HTTPException(status_code=404, detail="address book not found")
         return address_book
     except Exception as e:
-        logger.error(f"Error fetching address book with ID {address_id}: {str(e)}")
+        logger.error(f"Error fetching address book with ID {address_id} in get_address_book CRUD: {str(e)}")
         raise
 
 # Fetches all address book from the database.
@@ -58,7 +58,7 @@ def get_all_addresses(db: Session):
     try:
         return db.query(AddressBook).all()
     except Exception as e:
-        logger.error(f"Error fetching all address books: {str(e)}")
+        logger.error(f"Error fetching all address books in get_all_addresses CRUD: {str(e)}")
         raise
 
 # Updates a address_book by ID.
@@ -78,7 +78,7 @@ def update_address_book(db: Session, address_id: int, address_data: dict):
         return db_address
     except Exception as e:
         db.rollback()
-        logger.error(f"Error updating address book with ID {address_id}: {str(e)}")
+        logger.error(f"Error updating address book with ID {address_id} in update_address_book CRUD: {str(e)}")
         raise
 
 # Deletes a address by ID.
@@ -94,5 +94,5 @@ def delete_address_book(db: Session, address_id: int):
             return {"detail": f"Address {addressbook_to_delete.address_id} deleted successfully"}
     except Exception as e:
         db.rollback()
-        logger.error(f"Error deleting address book with ID {address_id}: {str(e)}")
+        logger.error(f"Error deleting address book with ID {address_id} in delete_address_book CRUD: {str(e)}")
         raise

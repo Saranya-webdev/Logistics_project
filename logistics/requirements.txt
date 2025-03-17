@@ -1,49 +1,49 @@
 
-# FastAPI for building the web application and API
-fastapi==0.115.6
-
-# Uvicorn for running the FastAPI application
+aiohappyeyeballs==2.4.4
+aiohttp==3.11.12
+aiosignal==1.3.2
+alembic==1.14.1
+annotated-types==0.7.0
+anyio==4.8.0
+asgiref==3.8.1
+attrs==25.1.0
+bcrypt==4.2.1
+certifi==2025.1.31
+cffi==1.17.1
+charset-normalizer==3.4.1
+click==8.1.8
+colorama==0.4.6
+cryptography==44.0.1
+Django==5.1.6
+django-cors-headers==4.7.0
+dnspython==2.7.0
+fastapi==0.115.8
+frozenlist==1.5.0
+greenlet==3.1.1
+h11==0.14.0
+idna==3.10
+Mako==1.3.9
+MarkupSafe==3.0.2
+motor==3.7.0
+multidict==6.1.0
+mysql-connector-python== 9.2.0
+passlib==1.7.4
+pillow==11.1.0
+propcache==0.2.1
+pycparser==2.22
+pydantic==2.10.6
+pydantic_core==2.27.2
+PyJWT==2.10.1
+pymongo==4.11
+PyMySQL==1.1.1
+python-dotenv==1.0.1
+requests==2.32.3
+sniffio==1.3.1
+SQLAlchemy==2.0.37
+sqlparse==0.5.3
+starlette==0.45.3
+typing_extensions==4.12.2
+tzdata==2025.1
+urllib3==2.3.0
 uvicorn==0.34.0
-
-# MySQL client for interacting with MySQL databases
-mysql-connector-python==8.0.27
-
-# SQLAlchemy for ORM (Object-Relational Mapping) with MySQL
-sqlalchemy==2.0.36
-
-# Pydantic for data validation and settings management
-pydantic==2.10.4
-
-# Alembic for database migrations with SQLAlchemy
-alembic==1.7.5
-
-# Explanation of the Requirements:
-fastapi and uvicorn: FastAPI is used to create the API, and Uvicorn is the ASGI server to run the application.
-sqlalchemy and mysql-connector-python: SQLAlchemy is used for ORM with MySQL as the database.
-pydantic: Often used for input validation in FastAPI
-
-# 2. customers.py in schemas:
-Pydantic models for validating and serializing customer data.
-Includes custom field validators for mobile, email, categories, and type.
-
-# 3. customers.py in routers:
-Defines FastAPI routes for customer-related operations.
-Routes include POST (create), GET (retrieve by ID and all), PUT (update), and DELETE (remove).
-Handles errors using HTTPException for common cases (e.g., customer not found).
-
-# 4. customers.py in crud:
-SQLAlchemy-based functions for CRUD operations on the Customer model.
-
-# Functions include:
-get_all_customers()
-get_customer()
-create_customer()
-update_customer()
-delete_customer()
-
-# API Endpoints:
-POST /createcustomer/: Creates a new customer.
-GET /{customer_id}/viewcustomer/: Retrieves a customer by ID.
-GET /allcustomers: Retrieves all customers.
-PUT /{customer_id}/updatecustomer: Updates an existing customer.
-DELETE /{customer_id}/deletecustomer: Deletes a customer by ID.
+yarl==1.18.3

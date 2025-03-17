@@ -17,18 +17,18 @@ class Carrier(BaseModel):
 
 class CarrierCreate(BaseModel):
     carrier_name: str
-    carrier_email: Optional[str] = None
+    carrier_email: str  
     carrier_mobile: str
-    carrier_address: Optional[str] = None
-    carrier_city: Optional[str] = None
-    carrier_state: Optional[str] = None
-    carrier_country: Optional[str] = None
-    carrier_pincode: Optional[str] = None
-    carrier_geolocation: Optional[str] = None
+    carrier_address: str
+    carrier_city: str
+    carrier_state: str
+    carrier_country: str
+    carrier_pincode: str
+    carrier_geolocation: str
+    account_name: str
+    account_number: str
+    # carrier_plan: str
 
-    class Config:
-        from_attributes = True
-        arbitrary_types_allowed = True
 
 class CarrierUpdate(BaseModel):
     carrier_name: Optional[str] 
@@ -74,9 +74,13 @@ class CarrierResponse(BaseModel):
     carrier_geolocation: str
     remarks: Optional[str] = None
     active_flag: int
-    
+    account_name: str
+    account_number: str
+    active_flag: int
+
     class Config:
         from_attributes = True
+
 
 class SuspendOrActiveRequest(BaseModel):
     carrier_email: str

@@ -1,10 +1,8 @@
-from app.models.carriers import Carrier  # Correct import
-from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
+from app.models.carriers import Carrier,CarrierAccount 
+from sqlalchemy.orm import Session,joinedload
+from fastapi import HTTPException
 import logging
-from app.utils.utils import log_and_raise_exception  # Correct import
-from typing import Optional
-from datetime import datetime
+from app.utils.utils import log_and_raise_exception 
 
 logger = logging.getLogger(__name__)
 
@@ -17,20 +15,60 @@ def log_error(message: str, status_code: int):
 
 # CRUD operations for create carrier
 def create_carrier_crud(db: Session, carrier_data: dict) -> Carrier:
-    """
-    CRUD operation for creating a carrier in the database.
-    """
+    """Create a new carrier entry in the database."""
     try:
-        logger.info("Creating carrier in the database...")
-        new_carrier = Carrier(**carrier_data)
+        new_carrier = Carrier(
+            carrier_name=carrier_data["carrier_name"],
+            carrier_email=carrier_data["carrier_email"],
+            carrier_mobile=carrier_data["carrier_mobile"],
+            carrier_address=carrier_data["carrier_address"],
+            carrier_city=carrier_data["carrier_city"],
+            carrier_state=carrier_data["carrier_state"],
+            carrier_country=carrier_data["carrier_country"],
+            carrier_pincode=carrier_data["carrier_pincode"],
+            carrier_geolocation=carrier_data["carrier_geolocation"],
+            active_flag=carrier_data.get("active_flag", 1)  # Default to 1
+        )
+        
         db.add(new_carrier)
         db.commit()
         db.refresh(new_carrier)
         return new_carrier
+
     except Exception as e:
-        logger.error(f"Error while creating carrier: {str(e)}")
         db.rollback()
-        raise
+        log_and_raise_exception(f"Error creating carrier in create_carrier_crud: {str(e)}", 500)
+
+
+# CRUD operations for create carrier with account
+
+def create_carrier_with_account(db: Session, carrier_data, account_data):
+    """Create a new carrier and its associated account in the database."""
+    try:
+        # Create the carrier
+        new_carrier = Carrier(**carrier_data)
+        db.add(new_carrier)
+        db.commit()
+        db.refresh(new_carrier)  # Ensure we get the updated carrier details
+
+        # Create the associated carrier account
+        new_account = CarrierAccount(
+            account_name=account_data["account_name"],
+            account_number=account_data["account_number"],
+            account_id=account_data["account_id"],
+            carrier_id=new_carrier.id  # Associate account with the created carrier
+        )
+
+        db.add(new_account)
+        db.commit()
+        db.refresh(new_account)
+        return new_carrier, new_account
+
+    except Exception as e:
+        db.rollback()  # Rollback any changes if an error occurs
+        log_and_raise_exception(f"Error creating carrier and account in create_carrier_with_account: {str(e)}", 500)
+
+
 
 
 # CRUD operations for update carrier
@@ -42,7 +80,7 @@ def update_carrier_crud(db: Session, carrier_email: str, carrier_data: dict) -> 
         ).first()
 
         if not existing_carrier:
-            raise HTTPException(status_code=404, detail=f"Carrier with email {carrier_email} not found")
+            log_and_raise_exception(f"Carrier with email {carrier_email} not found in update_carrier_crud", 404)
 
         for field, value in carrier_data.items():
             if hasattr(existing_carrier, field) and value is not None:
@@ -51,37 +89,41 @@ def update_carrier_crud(db: Session, carrier_email: str, carrier_data: dict) -> 
         db.commit()
         db.refresh(existing_carrier)
         return existing_carrier
+
     except Exception as e:
         db.rollback()
-        logger.error(f"Error updating carrier: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error updating carrier: {str(e)}")
+        log_and_raise_exception(f"Error updating carrier in update_carrier_crud: {str(e)}", 500)
 
 
 # CRUD operations for get carrier profile
 def get_carrier_profile_crud(db: Session, carrier_email: str):
     """
-    Retrieve an carrier from the database based on their email.
+    Retrieve a carrier along with their account details based on email.
     """
     try:
-        # Query the carrier based on their email
-        carrier = db.query(Carrier).filter(Carrier.carrier_email == carrier_email).first()
-        return carrier
+        return (
+            db.query(Carrier)
+            .filter(Carrier.carrier_email == carrier_email)
+            .options(joinedload(Carrier.account))  # Load the related CarrierAccount
+            .first()
+        )
     except Exception as e:
-        raise Exception(f"Database error while retrieving carrier: {str(e)}")
+        log_and_raise_exception(f"Database error while retrieving carrier in get_carrier_profile_crud: {str(e)}", 500)
 
 
-# CRUD operations for get carrier's profile list
+# CRUD operations for getting all carriers' profiles
 def get_all_carriers_list_crud(db: Session):
     """
-    Retrieve all carriers from the database.
+    Retrieve all carriers along with their account details.
     """
     try:
-        # Query all carriers from the database
-        carriers = db.query(Carrier).all()
-        return carriers
+        return (
+            db.query(Carrier)
+            .options(joinedload(Carrier.account))
+            .all()
+        )
     except Exception as e:
-        # Raise an exception if there's a database error
-        raise Exception(f"Database error while retrieving all carriers: {str(e)}")
+        log_and_raise_exception(f"Database error while retrieving all carriers in get_all_carriers_list_crud: {str(e)}", 500)
 
 
 # CRUD operations for suspen/active carrier
@@ -92,7 +134,7 @@ def suspend_or_activate_carrier_crud(db: Session, carrier_email: str, active_fla
         carrier = db.query(Carrier).filter(Carrier.carrier_email == carrier_email).first()
         
         if not carrier:
-            return None  # No carrier found
+            log_and_raise_exception(f"Carrier with email {carrier_email} not found in suspend_or_activate_carrier_crud", 404)
 
         # Update the carrier's status
         carrier.active_flag = active_flag
@@ -106,4 +148,4 @@ def suspend_or_activate_carrier_crud(db: Session, carrier_email: str, active_fla
 
     except Exception as e:
         db.rollback()  # Rollback if there is any error
-        raise Exception(f"Error in updating carrier status: {str(e)}")
+        log_and_raise_exception(f"Error updating carrier status in suspend_or_activate_carrier_crud: {str(e)}", 500)

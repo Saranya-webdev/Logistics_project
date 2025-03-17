@@ -4,13 +4,14 @@ from app.models.carriers import Carrier
 from app.utils.utils import check_existing_by_email
 import logging
 from fastapi import HTTPException, status
-from app.crud.carriers import create_carrier_crud, update_carrier_crud, suspend_or_activate_carrier_crud, get_carrier_profile_crud, get_all_carriers_list_crud
+from app.crud.carriers import create_carrier_crud, update_carrier_crud, suspend_or_activate_carrier_crud, get_carrier_profile_crud, get_all_carriers_list_crud, create_carrier_with_account
+
 
 logger = logging.getLogger(__name__)
 
 def create_carrier_service(db: Session, carrier_data: dict) -> dict:
     """
-    Business logic for creating a carrier.
+    Business logic for creating a carrier with an associated carrier account.
     """
     try:
         logger.info("Validating if the carrier already exists...")
@@ -19,15 +20,21 @@ def create_carrier_service(db: Session, carrier_data: dict) -> dict:
         if check_existing_by_email(db, Carrier, "carrier_email", carrier_data["carrier_email"]):
             return {"message": "Carrier already exists"}
 
-        # Validate required fields
-        required_fields = [
+        # Validate required fields for Carrier
+        required_carrier_fields = [
             "carrier_name", "carrier_mobile", "carrier_email", "carrier_address",
             "carrier_city", "carrier_state", "carrier_country", "carrier_pincode",
             "carrier_geolocation"
         ]
-        missing_fields = [field for field in required_fields if field not in carrier_data]
-        if missing_fields:
-            return {"message": f"Missing required fields: {', '.join(missing_fields)}"}
+        missing_carrier_fields = [field for field in required_carrier_fields if field not in carrier_data]
+        if missing_carrier_fields:
+            return {"message": f"Missing required carrier fields: {', '.join(missing_carrier_fields)}"}
+
+        # Validate required fields for CarrierAccount
+        required_account_fields = ["account_name", "account_number"]
+        missing_account_fields = [field for field in required_account_fields if field not in carrier_data]
+        if missing_account_fields:
+            return {"message": f"Missing required carrier account fields: {', '.join(missing_account_fields)}"}
 
         # Set default values
         carrier_data["active_flag"] = 0  # Default active_flag to 0
@@ -36,14 +43,34 @@ def create_carrier_service(db: Session, carrier_data: dict) -> dict:
         # Call the CRUD function to create the carrier
         new_carrier = create_carrier_crud(db, carrier_data)
 
+        # Create a Carrier Account entry
+        carrier_account_data = {
+            "carrier_id": new_carrier.carrier_id,
+            "carrier_name": new_carrier.carrier_name,
+            # "carrier_plan": carrier_data["carrier_plan"],
+            "account_name": carrier_data["account_name"],
+            "account_number": carrier_data["account_number"],
+            # "address": carrier_data["carrier_address"],  # Assuming address is the same
+            "active_flag": 1  # Default active_flag for carrier account
+        }
+        new_carrier_account = create_carrier_with_account(db, carrier_account_data)
+
         # Prepare response
         return {
-            "message": "Carrier created successfully",
+            "message": "Carrier and carrier account created successfully",
             "carrier_id": new_carrier.carrier_id,
             "carrier_name": new_carrier.carrier_name,
             "carrier_mobile": new_carrier.carrier_mobile,
-            "active_flag": new_carrier.active_flag,  # Ensure this is included
-            **{key: getattr(new_carrier, key) for key in carrier_data.keys()},
+            "carrier_email": new_carrier.carrier_email,
+            "active_flag": new_carrier.active_flag,
+            "carrier_account": {
+                # "carrier_account_id": new_carrier_account.carrier_account_id,
+                # "carrier_plan": new_carrier_account.carrier_plan,
+                "account_name": new_carrier_account.account_name,
+                "account_number": new_carrier_account.account_number,
+                # "address": new_carrier_account.address,
+                "active_flag": new_carrier_account.active_flag,
+            },
         }
 
     except IntegrityError as e:
@@ -56,65 +83,20 @@ def create_carrier_service(db: Session, carrier_data: dict) -> dict:
         return {"message": f"Error creating carrier: {str(e)}"}
 
 
-<<<<<<< HEAD
-# old for fastapi
-# def update_carrier_service(db: Session, carrier_email: str, carrier_data: dict) -> dict:
-#     """Business logic for updating a carrier's details based on carrier email."""
-#     try:
-#         # Step 1: Check if the carrier exists based on email
-#         existing_carrier = check_existing_by_email(db, Carrier, "carrier_email", carrier_email)
-#         if not existing_carrier:
-#             return {"message": "No carrier found with the given email."}
-
-#         # Step 2: Call CRUD to update the carrier's details
-#         updated_carrier = update_carrier_crud(db, carrier_email, carrier_data)
-
-#         if not updated_carrier:
-#             return {"message": "Error updating carrier details."}
-
-#         return {
-#             "carrier_id": updated_carrier.carrier_id,
-#             "carrier_name": updated_carrier.carrier_name,
-#             "carrier_email": updated_carrier.carrier_email,
-#             "carrier_mobile": updated_carrier.carrier_mobile,
-#             "carrier_address": updated_carrier.carrier_address,
-#             "carrier_city": updated_carrier.carrier_city,
-#             "carrier_state": updated_carrier.carrier_state,
-#             "carrier_country": updated_carrier.carrier_country,
-#             "carrier_pincode": updated_carrier.carrier_pincode,
-#             "carrier_geolocation": updated_carrier.carrier_geolocation,
-#             "active_flag": updated_carrier.active_flag,
-#             "remarks": updated_carrier.remarks,
-#         }
-#     except Exception as e:
-#         logger.error(f"Unexpected error: {str(e)}")
-#         return {"message": f"Error updating carrier: {str(e)}"}
-
 # new for frontend
-=======
-
->>>>>>> origin/main
 def update_carrier_service(db: Session, carrier_email: str, carrier_data: dict) -> dict:
     """Business logic for updating a carrier's details based on carrier email."""
     try:
-        # Step 1: Check if the carrier exists based on email
+        # Check if the carrier exists based on email
         existing_carrier = check_existing_by_email(db, Carrier, "carrier_email", carrier_email)
         if not existing_carrier:
-<<<<<<< HEAD
             raise HTTPException(status_code=404, detail="No carrier found with the given email.")
-=======
-            return {"message": "No carrier found with the given email."}
->>>>>>> origin/main
 
-        # Step 2: Call CRUD to update the carrier's details
+        # Call CRUD to update the carrier's details
         updated_carrier = update_carrier_crud(db, carrier_email, carrier_data)
 
         if not updated_carrier:
-<<<<<<< HEAD
             raise HTTPException(status_code=500, detail="Error updating carrier details.")
-=======
-            return {"message": "Error updating carrier details."}
->>>>>>> origin/main
 
         return {
             "carrier_id": updated_carrier.carrier_id,
@@ -132,14 +114,7 @@ def update_carrier_service(db: Session, carrier_email: str, carrier_data: dict) 
         }
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
-<<<<<<< HEAD
-        raise HTTPException(status_code=500, detail=f"Error updating carrier: {str(e)}")  # ✅ Raise an HTTPException instead of returning a dict
-=======
-        return {"message": f"Error updating carrier: {str(e)}"}
-
-
->>>>>>> origin/main
-
+        raise HTTPException(status_code=500, detail=f"Error updating carrier: {str(e)}")  
 
 def suspend_or_activate_carrier(db: Session, carrier_email: str, active_flag: int, remarks: str) -> dict:
     """
@@ -199,22 +174,22 @@ def suspend_or_activate_carrier(db: Session, carrier_email: str, active_flag: in
 
 
 
-def get_carrier_profile(db: Session, carrier_email: str) -> dict:
+def get_carrier_profile_service(db: Session, carrier_email: str) -> dict:
     """
-    Retrieve the profile of a carrier based on their email.
+    Retrieve the profile of a carrier, including account details, based on email.
     """
     try:
-        # Call the CRUD function to fetch the carrier from the database
         carrier = get_carrier_profile_crud(db, carrier_email)
 
-        # If no carrier is found, raise a 404 exception
         if not carrier:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Carrier not found"
             )
 
-        # Format the response with the carrier's profile details
+        # Ensure carrier.account is a single object
+        carrier_account = carrier.account
+
         return {
             "carrier_id": carrier.carrier_id,
             "carrier_name": carrier.carrier_name,
@@ -227,30 +202,35 @@ def get_carrier_profile(db: Session, carrier_email: str) -> dict:
             "carrier_pincode": carrier.carrier_pincode,
             "carrier_geolocation": carrier.carrier_geolocation,
             "active_flag": carrier.active_flag,
-            "remarks": carrier.remarks
+            "remarks": carrier.remarks,
+            "account_id": carrier_account.account_id if carrier_account else None,
+            "account_name": carrier_account.account_name if carrier_account else None,
+            "account_number": carrier_account.account_number if carrier_account else None,
         }
+
+    except HTTPException as http_err:
+        raise http_err
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrieving carrier profile: {str(e)}"
         )
 
-def get_carriers_profile_list(db: Session) -> list:
+
+def get_carriers_profile_list_service(db: Session) -> list:
     """
-    Retrieve a list of all carrier profiles.
+    Retrieve a list of all carrier profiles, including account details.
     """
     try:
-        # Get all carriers from the CRUD layer
+        # Fetch all carriers with account details
         carriers = get_all_carriers_list_crud(db)
 
-        # If no carriers are found, raise a 404 exception
         if not carriers:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No carriers found"
             )
 
-        # Format the carriers into a list of dictionaries (profiles)
         carrier_profiles = [
             {
                 "carrier_id": carrier.carrier_id,
@@ -264,15 +244,20 @@ def get_carriers_profile_list(db: Session) -> list:
                 "carrier_pincode": carrier.carrier_pincode,
                 "carrier_geolocation": carrier.carrier_geolocation,
                 "active_flag": carrier.active_flag,
-                "remarks": carrier.remarks
+                "remarks": carrier.remarks,
+                "account_id": carrier.account.account_id if carrier.account else None,
+                "account_name": carrier.account.account_name if carrier.account else None,
+                "account_number": carrier.account.account_number if carrier.account else None,
             }
             for carrier in carriers
         ]
+
         return carrier_profiles
 
+    except HTTPException as http_err:
+        raise http_err
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrieving carrier profiles: {str(e)}"
         )
-

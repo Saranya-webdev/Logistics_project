@@ -22,8 +22,8 @@ class BookingItemBase(BaseModel):
     width: str   
     height: str  
     package_type: str
-    pickup_date: str
-    package_count: int
+    # pickup_date: str
+    # package_count: int
     
 
 class BookingItemCreate(BookingItemBase):
@@ -34,10 +34,10 @@ class BookingItemDetailedResponse(BaseModel):
     booking_id: int
     item_id: int
     item_weight: float
-    item_length: float
-    item_width: float
-    item_height: float
-    package_type: str  # Ensure naming matches database field (`package_type_code`)
+    item_length: Optional[float] = None
+    item_width: Optional[float] = None
+    item_height: Optional[float] = None
+    package_type: str 
     package_cost: float
 
 
@@ -65,24 +65,25 @@ class BookingBase(BaseModel):
     carrier_plan: str
     carrier_name: str
     pickup_date: date
+    pickup_time: str
     package_count: int
     est_cost: float
     total_cost: float
     est_delivery_date: date
-    booking_date: date
-<<<<<<< HEAD
-    booking_status: str
-=======
-    # booking_status: str
->>>>>>> origin/main
+    # booking_date: date
+    booking_date: datetime
+    booking_status: BookingStatus = BookingStatus.Pending
+    tracking_number: Optional[str] = None
     customer_id: int
+    class Config:
+        use_enum_values = True
 
 
 class BookingItemList(BaseModel):
-    weight: float 
-    length: float 
-    width: float   
-    height: float
+    weight: float
+    length: Optional[float] = None
+    width: Optional[float] = None
+    height: Optional[float] = None
     package_type: str
     package_cost: float
     # volumetric_weight: float
@@ -113,29 +114,31 @@ class PackageDetails(BaseModel):
     carrier_plan: str
     carrier_name: str
     service_code: str
-    pickup_date: date
+    # pickup_date: date
     package_count: int
     est_cost: float
     total_cost: float
     est_delivery_date: date
-    booking_date: date
-<<<<<<< HEAD
+    booking_date: datetime
     booking_by: str
-=======
->>>>>>> origin/main
 
+    @validator("est_delivery_date", "booking_date", pre=True)
+    def format_dates(cls, v):
+        return v.isoformat() if isinstance(v, date) else v
 
-class BookingCreateRequeast(BaseModel):
+class BookingCreateRequest(BaseModel):
     customer_id: int
     ship_to_address: ShipToAddress
     ship_from_address: ShipFromAddress
+    pickup_date: str
+    pickup_time: str
     package_details: PackageDetails
-    booking_items:List [BookingItemList]    
+    tracking_number:Optional[str] = None
+    booking_items:List[BookingItemList] 
 
-
-# class BookingCreateResponse(BookingBase):
-#     booking_id: int
-#     booking_items: List[BookingItemList]
+    @validator("pickup_date", pre=True)
+    def format_pickup_date(cls, v):
+        return v.isoformat() if isinstance(v, date) else v   
 
 
 class BookingDetailedResponse(BookingBase):
@@ -183,36 +186,25 @@ class BookingUpdate(BaseModel):
 
 
 class Address(BaseModel):
-    Name: str
-    Mobile: str
-    Email: str
-<<<<<<< HEAD
-    # AddressLine_1: str
-    # AddressLine_2: str
-    # AddressLine_3: str
-    Address: str
-=======
-    AddressLine_1: str
-    AddressLine_2: str
-    AddressLine_3: str
->>>>>>> origin/main
-    City: str
-    StateProvinceCode: str
-    PostalCode: str
-    CountryCode: str
+    Name: Optional[str] = None
+    Mobile: Optional[str] = None
+    Email: Optional[str] = None
+    Address: Optional[str] = None 
+    City: Optional[str] = None
+    StateProvinceCode: Optional[str] = None
+    PostalCode: str 
+    CountryCode: Optional[str] = None
 
 
 class ShippingRateRequest(BaseModel):
-<<<<<<< HEAD
     # UserId: str
     # UserType: str
-=======
-    UserId: str
-    UserType: str
->>>>>>> origin/main
     ship_to_address: Address
     ship_from_address:Address
-    package_details: BookingItemBase
+    package_count: int
+    pickup_date: str
+    pickup_time:str
+    package_details: List[BookingItemBase]
     
 
 class ShippingRateResponse(BaseModel):
@@ -224,15 +216,16 @@ class ShippingRateResponse(BaseModel):
     estimated_arrival_time: str
     dayofweek: str
     total_charges: float
+    quotation_id: Optional[str] = None
 
 
 class ShipmentCreateResponse(BaseModel):
-    # status: str
+    booking_status: str
     shipment_id: str
     tracking_number: str
     total_charges: str
     base_service_charge: Optional[str]
-    residential_surcharge: Optional[str]    
-
+    residential_surcharge: Optional[str] = None
+    label_filename: Optional[str]
     
     

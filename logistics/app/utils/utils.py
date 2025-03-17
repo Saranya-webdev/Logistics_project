@@ -2,7 +2,7 @@ import logging
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.models.customers import Customer
-from app.models.enums import Category, Type
+from app.models.enums import Category, Type,VerificationStatus
 from passlib.context import CryptContext
 
 # Configure logger
@@ -49,16 +49,16 @@ def populate_dynamic_entries(db: Session, model, enum_list, field_name: str):
     """Populate dynamic entries in the database based on enum values."""
     for enum_value in enum_list:
         try:
-            # Convert enum value to its string representation
-            enum_value_name = enum_value.name  # Use .name to get the enum's string name
+            # Ensure consistent case usage
+            enum_value_name = enum_value.name  # This returns "tier_1", "individual", etc.
 
-            # Handle enums dynamically based on the field name
             if field_name == 'customer_category':
-                category_enum = getattr(Category, enum_value_name, None)
+                category_enum = Category.__members__.get(enum_value_name)
                 if category_enum is None:
                     raise ValueError(f"Invalid CustomerCategory value: {enum_value_name}")
+
             elif field_name == 'customer_type':
-                customer_type_enum = getattr(Type, enum_value_name, None)
+                customer_type_enum = Type.__members__.get(enum_value_name)
                 if customer_type_enum is None:
                     raise ValueError(f"Invalid value {enum_value_name} for customer_type enum")
             else:
@@ -77,8 +77,8 @@ def populate_dynamic_entries(db: Session, model, enum_list, field_name: str):
                 "customer_geolocation": "0.0000° N, 0.0000° W",
                 "customer_type": customer_type_enum if field_name == 'customer_type' else Type.individual,
                 "customer_category": category_enum if field_name == 'customer_category' else Category.tier_1,
-                "verification_status": "Verified",
-                "is_active": True,
+                "verification_status": VerificationStatus.NoneValue.value
+
             }
 
             # Add tax_id handling for corporate customers
@@ -86,10 +86,10 @@ def populate_dynamic_entries(db: Session, model, enum_list, field_name: str):
                 customer_data["tax_id"] = "123-456-789"
 
             # Check if an entry with the same enum value already exists
-            existing_entry = db.query(model).filter(getattr(model, field_name) == enum_value_name).first()
+            existing_entry = db.query(model).filter(getattr(model, field_name) == enum_value.value).first()
             if not existing_entry:
                 db.add(model(**customer_data))
-                db.flush()  # Flush changes to the database
+                db.flush()
 
         except ValueError as e:
             logger.error(f"Error: {str(e)}")
@@ -99,6 +99,7 @@ def populate_dynamic_entries(db: Session, model, enum_list, field_name: str):
             continue
 
     db.commit()
+
 
 
 # ========== Customer Validation ==========

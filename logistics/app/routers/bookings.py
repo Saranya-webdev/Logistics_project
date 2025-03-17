@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session,joinedload
-from app.schemas.bookings import ShippingRateRequest,ShippingRateResponse,BookingCreateRequeast, BookingListResponse,ShipmentCreateResponse
+from app.schemas.bookings import ShippingRateRequest,ShippingRateResponse,BookingCreateRequest, BookingListResponse,ShipmentCreateResponse
 from app.databases.mysqldb import get_db
 from app.service.bookings import create_booking_and_shipment_service, fetch_shipping_rates, cancel_booking_service, get_all_bookings_service,update_quotation_status_service
-from typing import  List
+from typing import  List, Optional
+from fastapi import Query
 
 
 router = APIRouter()
@@ -15,60 +16,57 @@ async def get_ups_shipping_rates(request_data: ShippingRateRequest):
     This does NOT store data; it only retrieves shipping plans.
     """
     try:
-       result = await fetch_shipping_rates(request_data.dict())  # Simulated function call
+       result = await fetch_shipping_rates(request_data.dict())  
 
-       # Check if result is None or contains an "error" key
        if not result or isinstance(result, dict) and "error" in result:
           raise HTTPException(status_code=400, detail=result)
 
-       # Ensure the result contains the key 'shipping_rates' with a list value
        if 'shipping_rates' not in result:
-          raise HTTPException(status_code=400, detail="Invalid response format, 'shipping_rates' not found.")
+          raise HTTPException(status_code=400, detail="UPS API response does not contain 'shipping_rates'.")
+       
+       # Extract quotation_id from result
+       quotation_id = result.get("quotation_id") 
     
         # Map the result to include both shipper_address and ship_from_address
        shipping_rates = result['shipping_rates']
        for rate in shipping_rates:
-        rate['shipper_address'] = request_data.ship_from_address  # Add ship_from_address as shipper_address
-        rate['ship_from_address'] = request_data.ship_from_address  # Ensure ship_from_address is included in the response
+        rate['shipper_address'] = request_data.ship_from_address  
+        rate['ship_from_address'] = request_data.ship_from_address 
+        rate['quotation_id'] = quotation_id
 
-       # Return the list of shipping rates
-       return shipping_rates  # Now includes both 'shipper_address' and 'ship_from_address'
+        print("Final Shipping Rates:", shipping_rates)
+
+       return shipping_rates  
     except Exception as e:
-        # General exception handling for unexpected errors
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/create_booking/", response_model=ShipmentCreateResponse)
-async def create_booking(request_data: BookingCreateRequeast, db: Session = Depends(get_db)):
-    """
-    Endpoint to create a booking and shipment using the UPS API.
-    """
+async def create_booking(request_data: BookingCreateRequest, db: Session = Depends(get_db)):
     try:
-        # Pass both db and data as arguments to the service function
+        print(f"Request Data: {request_data}")
         response = create_booking_and_shipment_service(db, request_data.dict())
-        
-        # If there's an error in the service function, raise HTTPException
         if "error" in response:
             raise HTTPException(status_code=400, detail=response["error"])
-        
-        # Return the successful response
         return response
     except Exception as e:
-        # General exception handling for unexpected errors
+        print(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+   
 
-@router.put("/quotations/{quotation_id}/status")
+@router.put("/quotations/{quotation_id}/updatequotation")
 async def update_quotation_status(quotation_id: str):
     """
     API endpoint to update the quotation status to 'Saved'.
     Calls the service layer for business logic.
     """
     try:
-       response = await update_quotation_status_service(quotation_id)
-       return response 
+        response = await update_quotation_status_service(quotation_id)
+        if "error" in response:
+            raise HTTPException(status_code=400, detail=response["error"])
+        return response  
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")   
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
 @router.put("/cancelbookings/{booking_id}")
@@ -86,10 +84,10 @@ def cancel_booking(booking_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/allbookingslist/", response_model=BookingListResponse)
-def get_all_bookings(db: Session = Depends(get_db)):
+def get_all_bookings(booking_id: Optional[int] = Query(None), db: Session = Depends(get_db)):
     """API endpoint to fetch all bookings."""
     try:
-        bookings = get_all_bookings_service(db)
+        bookings = get_all_bookings_service(db, booking_id)
 
         if not bookings:
             return {"bookings": [], "message": "No bookings found. Yet to create bookings."}
